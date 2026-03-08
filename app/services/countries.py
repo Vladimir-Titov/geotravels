@@ -20,4 +20,4 @@ class CountriesService:
         return await self.countries_repository.list_all()
 
     def get_geojson(self) -> dict[str, Any]:
-        return load_geojson(str(self.settings.countries_geojson_path))
+        return load_geojson(str(self.settings.resolved_countries_geojson_path))

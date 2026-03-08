@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
+from app.repositories import RowNotFoundError
 from app.repositories.users import UsersRepository
 from app.services.exceptions import AuthenticationError, ConflictError
 from helpers.security import decode_token, encode_token, hash_password, verify_password
@@ -20,15 +21,23 @@ class AuthService:
         self.settings = settings
 
     async def register(self, email: str, password: str) -> dict[str, str]:
-        async with self.users_repository.transaction():
-            existing_user = await self.users_repository.get_by_email(email)
-            if existing_user:
-                raise ConflictError('User with this email already exists')
+        try:
+            async with self.users_repository.transaction():
+                existing_user = await self.users_repository.get_by_email(email)
+                if existing_user:
+                    raise ConflictError('User with this email already exists')
 
-            user = await self.users_repository.create(
-                email=email,
-                password_hash=hash_password(password),
-            )
+                user = await self.users_repository.create(
+                    email=email,
+                    password_hash=hash_password(password),
+                )
+        except ConflictError:
+            raise
+        except Exception as exc:
+            # Re-check after rollback so duplicate-key races become a stable 409 response.
+            if await self.users_repository.get_by_email(email):
+                raise ConflictError('User with this email already exists') from exc
+            raise
 
         return self._issue_tokens(user_id=user['id'])
 
@@ -43,10 +52,10 @@ class AuthService:
     async def refresh(self, refresh_token: str) -> dict[str, str]:
         payload = self._decode_token(refresh_token, expected_type='refresh')
         user_id = UUID(payload['sub'])
-        user = await self.users_repository.get_by_id(user_id)
-
-        if not user:
-            raise AuthenticationError('User not found')
+        try:
+            await self.users_repository.get_by_id(user_id)
+        except RowNotFoundError as exc:
+            raise AuthenticationError('User not found') from exc
 
         access_token = self._encode_access_token(user_id=user_id)
         return {'access_token': access_token, 'token_type': 'bearer'}

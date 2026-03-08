@@ -27,7 +27,7 @@ def alembic_config(database_url: str | None = None) -> Config:
 
 
 async def seed_countries(settings: AppSettings) -> int:
-    geojson_path = BASE_DIR / settings.countries_geojson_path
+    geojson_path = settings.resolved_countries_geojson_path
     with geojson_path.open('r', encoding='utf-8') as source:
         payload = json.load(source)
 

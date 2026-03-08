@@ -33,7 +33,7 @@ def db_pool(settings: AppSettings):
     finally:
         sync_engine.dispose()
 
-    geojson_path = Path(settings.countries_geojson_path)
+    geojson_path = settings.resolved_countries_geojson_path
     with geojson_path.open('r', encoding='utf-8') as source:
         payload = json.load(source)
 

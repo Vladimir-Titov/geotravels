@@ -19,3 +19,16 @@ async def test_list_countries_and_geojson(db_pool, settings) -> None:
     geojson = service.get_geojson()
     assert geojson['type'] == 'FeatureCollection'
     assert geojson['features']
+
+
+def test_get_geojson_uses_project_root_for_relative_path(settings, monkeypatch, tmp_path) -> None:
+    service = CountriesService(
+        countries_repository=None,  # type: ignore[arg-type]
+        settings=settings,
+    )
+
+    monkeypatch.chdir(tmp_path)
+
+    geojson = service.get_geojson()
+    assert geojson['type'] == 'FeatureCollection'
+    assert geojson['features']

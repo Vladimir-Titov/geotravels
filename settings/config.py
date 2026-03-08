@@ -6,10 +6,15 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 def to_sync_database_url(database_url: str) -> str:
     if database_url.startswith('postgresql+asyncpg://'):
         return database_url.replace('postgresql+asyncpg://', 'postgresql+psycopg://', 1)
+
+    if database_url.startswith('postgresql://'):
+        return database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
 
     if database_url.startswith('sqlite+aiosqlite://'):
         return database_url.replace('sqlite+aiosqlite://', 'sqlite+pysqlite://', 1)
@@ -40,7 +45,7 @@ class AppSettings(BaseSettings):
     app_name: str = 'geotravels'
     environment: str = 'dev'
 
-    database_url: str = 'postgresql://postgres:postgres@localhost:54441/postgres'
+    database_url: str = 'postgresql+asyncpg://postgres:postgres@localhost:54441/postgres'
 
     jwt_secret: str = Field(default='change-me-in-prod', min_length=8)
     jwt_algorithm: str = 'HS256'
@@ -58,6 +63,12 @@ class AppSettings(BaseSettings):
     @property
     def runtime_database_url(self) -> str:
         return to_async_database_url(self.database_url)
+
+    @property
+    def resolved_countries_geojson_path(self) -> Path:
+        if self.countries_geojson_path.is_absolute():
+            return self.countries_geojson_path
+        return BASE_DIR / self.countries_geojson_path
 
 
 @lru_cache(maxsize=1)
