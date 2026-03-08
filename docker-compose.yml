@@ -1,0 +1,17 @@
+services:
+  users_postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - '54441:5432'
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U postgres -d postgres'" ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  geotravels_postgres_data:

@@ -1,0 +1,42 @@
+[project]
+name = "geotravels"
+version = "0.1.0"
+description = "MVP API for tracking visited countries"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "alembic>=1.14.1,<1.18.0",
+  "litestar>=2.18.0",
+  "pydantic>=2.11.0",
+  "pydantic-settings>=2.8.1",
+  "pyjwt>=2.10.1",
+  "sqlalchemy>=2.0.39",
+  "asyncpg>=0.31.0",
+  "aiosqlite>=0.21.0",
+  "psycopg[binary]>=3.2.6",
+  "uvicorn>=0.34.0",
+  "email-validator>=2.2.0"
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.5",
+  "pytest-asyncio>=1.2.0",
+  "pytest-cov>=6.0.0",
+  "ruff>=0.13.0",
+  "httpx>=0.28.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "single"
