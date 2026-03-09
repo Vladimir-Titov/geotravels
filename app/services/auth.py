@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.repositories import RowNotFoundError
 from app.repositories.users import UsersRepository
-from app.services.exceptions import AuthenticationError, ConflictError
+from app.services.exceptions import AppError, AuthenticationError, ConflictError
 from helpers.security import decode_token, encode_token, hash_password, verify_password
 from settings import AppSettings
 
@@ -22,22 +22,17 @@ class AuthService:
 
     async def register(self, email: str, password: str) -> dict[str, str]:
         try:
-            async with self.users_repository.transaction():
-                existing_user = await self.users_repository.get_by_email(email)
-                if existing_user:
-                    raise ConflictError('User with this email already exists')
-
-                user = await self.users_repository.create(
-                    email=email,
-                    password_hash=hash_password(password),
-                )
+            existing_user: dict[str, Any] | None = await self.users_repository.get_by_email(email)
+            if existing_user:
+                raise ConflictError('User with this email already exists')
+            user = await self.users_repository.create(
+                email=email,
+                password_hash=hash_password(password),
+            )
         except ConflictError:
             raise
-        except Exception as exc:
-            # Re-check after rollback so duplicate-key races become a stable 409 response.
-            if await self.users_repository.get_by_email(email):
-                raise ConflictError('User with this email already exists') from exc
-            raise
+        except Exception:
+            raise AppError('Failed to register user')
 
         return self._issue_tokens(user_id=user['id'])
 
@@ -72,29 +67,32 @@ class AuthService:
         }
 
     def _encode_access_token(self, user_id: UUID) -> str:
+        auth_settings = self.settings.auth
         return encode_token(
             subject=str(user_id),
             token_type='access',
-            secret=self.settings.jwt_secret,
-            algorithm=self.settings.jwt_algorithm,
-            ttl=timedelta(minutes=self.settings.access_token_ttl_minutes),
+            secret=auth_settings.jwt_secret,
+            algorithm=auth_settings.jwt_algorithm,
+            ttl=timedelta(minutes=auth_settings.access_token_ttl_minutes),
         )
 
     def _encode_refresh_token(self, user_id: UUID) -> str:
+        auth_settings = self.settings.auth
         return encode_token(
             subject=str(user_id),
             token_type='refresh',
-            secret=self.settings.jwt_secret,
-            algorithm=self.settings.jwt_algorithm,
-            ttl=timedelta(days=self.settings.refresh_token_ttl_days),
+            secret=auth_settings.jwt_secret,
+            algorithm=auth_settings.jwt_algorithm,
+            ttl=timedelta(days=auth_settings.refresh_token_ttl_days),
         )
 
     def _decode_token(self, token: str, expected_type: str) -> dict[str, Any]:
+        auth_settings = self.settings.auth
         try:
             payload = decode_token(
                 token=token,
-                secret=self.settings.jwt_secret,
-                algorithm=self.settings.jwt_algorithm,
+                secret=auth_settings.jwt_secret,
+                algorithm=auth_settings.jwt_algorithm,
             )
         except ValueError as exc:
             raise AuthenticationError(str(exc)) from exc

@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from app.models.tables import metadata
 from app.repositories.countries import CountriesRepository
 from helpers import create_db_pool_from_settings
-from settings import AppSettings, to_sync_database_url
+from settings import AppSettings, AuthSettings, DBSettings, to_sync_database_url
 from web.app import create_app
 
 
@@ -19,15 +19,15 @@ from web.app import create_app
 def settings(tmp_path: Path) -> AppSettings:
     db_path = tmp_path / 'test.db'
     return AppSettings(
-        database_url=f'sqlite+aiosqlite:///{db_path}',
-        jwt_secret='test-secret-123456789012345678901234',
         countries_geojson_path=Path('data/countries.geojson'),
+        auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234'),
+        db=DBSettings(database_url=f'sqlite+aiosqlite:///{db_path}'),
     )
 
 
 @pytest.fixture()
 def db_pool(settings: AppSettings):
-    sync_engine = create_engine(to_sync_database_url(settings.database_url), future=True)
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
     try:
         metadata.create_all(sync_engine)
     finally:

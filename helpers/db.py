@@ -12,7 +12,7 @@ from sqlalchemy.dialects.sqlite import dialect as sqlite_dialect
 from sqlalchemy.engine import make_url
 from sqlalchemy.sql import Executable
 
-from settings import AppSettings
+from settings import AppSettings, DBSettings
 
 
 @runtime_checkable
@@ -78,7 +78,7 @@ class AsyncpgPool:
         self._pool = pool
 
     @classmethod
-    async def create(cls, settings: AppSettings) -> AsyncpgPool:
+    async def create(cls, settings: DBSettings) -> AsyncpgPool:
         dsn = settings.runtime_database_url
         if dsn.startswith('postgresql+asyncpg://'):
             dsn = dsn.replace('postgresql+asyncpg://', 'postgresql://', 1)
@@ -187,10 +187,11 @@ class SqlitePool:
 
 
 async def create_db_pool_from_settings(settings: AppSettings) -> DBPool:
-    runtime_url = settings.runtime_database_url
+    db_settings = settings.db
+    runtime_url = db_settings.runtime_database_url
 
     if runtime_url.startswith('postgresql+asyncpg://'):
-        return await AsyncpgPool.create(settings)
+        return await AsyncpgPool.create(db_settings)
 
     if runtime_url.startswith('sqlite+aiosqlite://'):
         return SqlitePool(runtime_url)

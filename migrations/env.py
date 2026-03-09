@@ -19,7 +19,7 @@ settings = AppSettings()
 if configured_url and configured_url != alembic_default_url:
     config.set_main_option('sqlalchemy.url', to_sync_database_url(configured_url))
 else:
-    config.set_main_option('sqlalchemy.url', settings.database_url_for_migrations)
+    config.set_main_option('sqlalchemy.url', settings.db.database_url_for_migrations)
 
 target_metadata = metadata
 

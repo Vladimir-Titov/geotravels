@@ -54,13 +54,13 @@ def run_server(host: str, port: int, reload: bool) -> None:
 
 def run_migrate(args: argparse.Namespace) -> None:
     settings = AppSettings()
-    config = alembic_config(database_url=settings.database_url_for_migrations)
+    config = alembic_config(database_url=settings.db.database_url_for_migrations)
     command.upgrade(config, args.revision)
 
 
 def run_create_revision(args: argparse.Namespace) -> None:
     settings = AppSettings()
-    config = alembic_config(database_url=settings.database_url_for_migrations)
+    config = alembic_config(database_url=settings.db.database_url_for_migrations)
     command.revision(config, message=args.message, autogenerate=args.autogenerate)
 
 
@@ -72,7 +72,7 @@ def run_seed(_: argparse.Namespace) -> None:
 
 def run_init_db(_: argparse.Namespace) -> None:
     settings = AppSettings()
-    sync_url = to_sync_database_url(settings.database_url)
+    sync_url = to_sync_database_url(settings.db.database_url)
     engine = create_engine(sync_url, future=True)
     try:
         metadata.create_all(engine)

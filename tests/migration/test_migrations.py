@@ -7,7 +7,7 @@ from alembic import command
 from sqlalchemy import create_engine, inspect, text
 
 from manage import alembic_config, seed_countries
-from settings import AppSettings
+from settings import AppSettings, DBSettings
 
 
 def test_alembic_upgrade_head_creates_tables(tmp_path: Path) -> None:
@@ -32,8 +32,8 @@ def test_seed_countries_is_idempotent(tmp_path: Path) -> None:
     command.upgrade(config, 'head')
 
     settings = AppSettings(
-        database_url=database_url,
         countries_geojson_path=Path('data/countries.geojson'),
+        db=DBSettings(database_url=database_url),
     )
 
     inserted_first = asyncio.run(seed_countries(settings))

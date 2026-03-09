@@ -19,3 +19,7 @@ class ConflictError(ServiceError):
 
 class NotFoundError(ServiceError):
     status_code = 404
+
+
+class AppError(ServiceError):
+    status_code = 500

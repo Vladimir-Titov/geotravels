@@ -4,65 +4,20 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-def to_sync_database_url(database_url: str) -> str:
-    if database_url.startswith('postgresql+asyncpg://'):
-        return database_url.replace('postgresql+asyncpg://', 'postgresql+psycopg://', 1)
-
-    if database_url.startswith('postgresql://'):
-        return database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
-
-    if database_url.startswith('sqlite+aiosqlite://'):
-        return database_url.replace('sqlite+aiosqlite://', 'sqlite+pysqlite://', 1)
-
-    return database_url
-
-
-def to_async_database_url(database_url: str) -> str:
-    if database_url.startswith('postgresql+psycopg://'):
-        return database_url.replace('postgresql+psycopg://', 'postgresql+asyncpg://', 1)
-
-    if database_url.startswith('postgresql://'):
-        return database_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
-
-    if database_url.startswith('sqlite+pysqlite://'):
-        return database_url.replace('sqlite+pysqlite://', 'sqlite+aiosqlite://', 1)
-
-    return database_url
+from settings.auth import AuthSettings
+from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
+from settings.db import DBSettings
 
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_prefix='GEOTRAVELS_',
-        extra='ignore',
-    )
+    model_config = COMMON_MODEL_CONFIG
 
-    app_name: str = 'geotravels'
-    environment: str = 'dev'
-
-    database_url: str = 'postgresql+asyncpg://postgres:postgres@localhost:54441/postgres'
-
-    jwt_secret: str = Field(default='change-me-in-prod', min_length=8)
-    jwt_algorithm: str = 'HS256'
-    access_token_ttl_minutes: int = 15
-    refresh_token_ttl_days: int = 30
-
-    countries_geojson_path: Path = Path('data/countries.geojson')
-    db_pool_min_size: int = 5
-    db_pool_max_size: int = 20
-
-    @property
-    def database_url_for_migrations(self) -> str:
-        return to_sync_database_url(self.database_url)
-
-    @property
-    def runtime_database_url(self) -> str:
-        return to_async_database_url(self.database_url)
+    app_name: str
+    countries_geojson_path: Path
+    auth: AuthSettings = Field(default_factory=AuthSettings)
+    db: DBSettings = Field(default_factory=DBSettings)
 
     @property
     def resolved_countries_geojson_path(self) -> Path:
