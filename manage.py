@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
 import json
+import os
 from pathlib import Path
 
+import click
 import uvicorn
 from alembic import command
 from alembic.config import Config
@@ -48,29 +49,31 @@ async def seed_countries(settings: AppSettings) -> int:
         await db_pool.close()
 
 
-def run_server(host: str, port: int, reload: bool) -> None:
+def run_server(reload: bool) -> None:
+    host = os.getenv('UVICORN_HOST', '0.0.0.0')
+    port = int(os.getenv('UVICORN_PORT', '8000'))
     uvicorn.run('web.app:app', host=host, port=port, reload=reload)
 
 
-def run_migrate(args: argparse.Namespace) -> None:
+def run_migrate(revision: str) -> None:
     settings = AppSettings()
     config = alembic_config(database_url=settings.db.database_url_for_migrations)
-    command.upgrade(config, args.revision)
+    command.upgrade(config, revision)
 
 
-def run_create_revision(args: argparse.Namespace) -> None:
+def run_create_revision(message: str, autogenerate: bool) -> None:
     settings = AppSettings()
     config = alembic_config(database_url=settings.db.database_url_for_migrations)
-    command.revision(config, message=args.message, autogenerate=args.autogenerate)
+    command.revision(config, message=message, autogenerate=autogenerate)
 
 
-def run_seed(_: argparse.Namespace) -> None:
+def run_seed() -> None:
     settings = AppSettings()
     inserted = asyncio.run(seed_countries(settings))
     print(f'Inserted {inserted} new countries')
 
 
-def run_init_db(_: argparse.Namespace) -> None:
+def run_init_db() -> None:
     settings = AppSettings()
     sync_url = to_sync_database_url(settings.db.database_url)
     engine = create_engine(sync_url, future=True)
@@ -81,42 +84,42 @@ def run_init_db(_: argparse.Namespace) -> None:
     print('Database schema initialized with SQLAlchemy metadata')
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='geotravels management commands')
-    subparsers = parser.add_subparsers(dest='command', required=True)
+@click.group(help='geotravels management commands')
+def cli() -> None:
+    pass
 
-    run_parser = subparsers.add_parser('run', help='Run API server')
-    run_parser.add_argument('--host', default='0.0.0.0')
-    run_parser.add_argument('--port', default=8000, type=int)
-    run_parser.add_argument('--reload', action='store_true')
 
-    migrate_parser = subparsers.add_parser('migrate', help='Run alembic upgrade')
-    migrate_parser.add_argument('revision', nargs='?', default='head')
-    migrate_parser.set_defaults(func=run_migrate)
+@cli.command(help='Run API server')
+@click.option('--reload', is_flag=True, default=False)
+def run(reload: bool) -> None:
+    run_server(reload=reload)
 
-    revision_parser = subparsers.add_parser('create-revision', help='Create alembic migration revision')
-    revision_parser.add_argument('-m', '--message', required=True)
-    revision_parser.add_argument('--autogenerate', action='store_true')
-    revision_parser.set_defaults(func=run_create_revision)
 
-    seed_parser = subparsers.add_parser('seed-countries', help='Load countries from GeoJSON')
-    seed_parser.set_defaults(func=run_seed)
+@cli.command(help='Run alembic upgrade')
+@click.argument('revision', required=False, default='head')
+def migrate(revision: str) -> None:
+    run_migrate(revision=revision)
 
-    init_parser = subparsers.add_parser('init-db', help='Create DB tables without migrations')
-    init_parser.set_defaults(func=run_init_db)
 
-    return parser
+@cli.command(name='create-revision', help='Create alembic migration revision')
+@click.option('-m', '--message', required=True)
+@click.option('--autogenerate', is_flag=True, default=False)
+def create_revision(message: str, autogenerate: bool) -> None:
+    run_create_revision(message=message, autogenerate=autogenerate)
+
+
+@cli.command(name='seed-countries', help='Load countries from GeoJSON')
+def seed_countries_command() -> None:
+    run_seed()
+
+
+@cli.command(name='init-db', help='Create DB tables without migrations')
+def init_db_command() -> None:
+    run_init_db()
 
 
 def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.command == 'run':
-        run_server(host=args.host, port=args.port, reload=args.reload)
-        return
-
-    args.func(args)
+    cli()
 
 
 if __name__ == '__main__':

@@ -33,9 +33,10 @@ MVP backend API for marking visited countries on a political map.
    ```bash
    uv run python manage.py run --reload
    ```
+   Host/port are configured via env vars `UVICORN_HOST` and `UVICORN_PORT`.
 
 ## Management commands
-- `uv run python manage.py run --reload`
+- `uv run python manage.py run --reload` (host/port from `UVICORN_HOST` / `UVICORN_PORT`)
 - `uv run python manage.py migrate [revision]`
 - `uv run python manage.py create-revision -m "message" --autogenerate`
 - `uv run python manage.py seed-countries`
