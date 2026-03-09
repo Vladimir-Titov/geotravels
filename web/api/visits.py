@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from uuid import UUID
-
 from litestar import Router, get, post
 from litestar.exceptions import HTTPException
 
+from app.services.current_user import CurrentUser
 from app.services.exceptions import ServiceError
 from app.services.visits import VisitsService
 from web.api.schemas import MarkVisitRequest, VisitEventResponse, VisitsResponse
@@ -14,11 +13,11 @@ from web.api.schemas import MarkVisitRequest, VisitEventResponse, VisitsResponse
 async def mark_visit(
     data: MarkVisitRequest,
     visits_service: VisitsService,
-    current_user_id: UUID,
+    current_user: CurrentUser,
 ) -> VisitEventResponse:
     try:
         visit = await visits_service.mark_visited(
-            user_id=current_user_id,
+            user_id=current_user.id,
             country_code=data.country_code,
             trip_date=data.trip_date,
         )
@@ -28,8 +27,8 @@ async def mark_visit(
 
 
 @get('', tags=['visits'])
-async def list_visits(visits_service: VisitsService, current_user_id: UUID) -> VisitsResponse:
-    data = await visits_service.list_visits(user_id=current_user_id)
+async def list_visits(visits_service: VisitsService, current_user: CurrentUser) -> VisitsResponse:
+    data = await visits_service.list_visits(user_id=current_user.id)
     return VisitsResponse(
         visits=[VisitEventResponse(**item) for item in data['visits']],
         visited_country_codes=data['visited_country_codes'],

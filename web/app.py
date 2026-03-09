@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from uuid import UUID
+from typing import Annotated
 
 from litestar import Litestar, Request
 from litestar.di import Provide
 from litestar.exceptions import HTTPException
+from litestar.params import Parameter
 
 from app.repositories import CountriesRepository, UsersRepository, VisitsRepository
 from app.services import AuthService, CountriesService, VisitsService
+from app.services.current_user import CurrentUser
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, get_settings
 from web.routes import route_handlers
@@ -45,8 +47,9 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             countries_repository=countries_repository,
         )
 
-    def provide_current_user_id(request: Request, auth_service: AuthService) -> UUID:
-        authorization = request.headers.get('Authorization')
+    def provide_current_user(
+        request: Request, auth_service: AuthService, authorization: Annotated[str, Parameter(header='Authorization')]
+    ) -> CurrentUser:
         if not authorization:
             raise HTTPException(status_code=401, detail='Missing Authorization header')
 
@@ -55,7 +58,8 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             raise HTTPException(status_code=401, detail='Invalid Authorization header')
 
         try:
-            return auth_service.get_user_id_from_access_token(token)
+            user_id = auth_service.get_user_id_from_access_token(token)  # todo: handle if token expired
+            return CurrentUser(id=user_id)
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
@@ -67,7 +71,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
-            'current_user_id': Provide(provide_current_user_id, sync_to_thread=False),
+            'current_user': Provide(provide_current_user, sync_to_thread=False),
         },
     )
 
