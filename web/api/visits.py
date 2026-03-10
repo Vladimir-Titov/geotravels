@@ -9,7 +9,7 @@ from app.services.visits import VisitsService
 from web.api.schemas import MarkVisitRequest, VisitEventResponse, VisitsResponse
 
 
-@post('', tags=['visits'])
+@post('', tags=['visits'], security=[{'user_auth': []}])
 async def mark_visit(
     data: MarkVisitRequest,
     visits_service: VisitsService,
@@ -26,7 +26,7 @@ async def mark_visit(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@get('', tags=['visits'])
+@get('', tags=['visits'], security=[{'user_auth': []}])
 async def list_visits(visits_service: VisitsService, current_user: CurrentUser) -> VisitsResponse:
     data = await visits_service.list_visits(user_id=current_user.id)
     return VisitsResponse(

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated
-
 from litestar import Litestar, Request
 from litestar.di import Provide
 from litestar.exceptions import HTTPException
-from litestar.params import Parameter
+from litestar.openapi import OpenAPIConfig
+from litestar.openapi.spec import Components, SecurityScheme
 
 from app.repositories import CountriesRepository, UsersRepository, VisitsRepository
 from app.services import AuthService, CountriesService, VisitsService
@@ -47,9 +46,8 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             countries_repository=countries_repository,
         )
 
-    def provide_current_user(
-        request: Request, auth_service: AuthService, authorization: Annotated[str, Parameter(header='Authorization')]
-    ) -> CurrentUser:
+    def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:
+        authorization = request.headers.get('Authorization', '')
         if not authorization:
             raise HTTPException(status_code=401, detail='Missing Authorization header')
 
@@ -67,6 +65,15 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         route_handlers=route_handlers,
         on_startup=[startup],
         on_shutdown=[shutdown],
+        openapi_config=OpenAPIConfig(
+            title='GeoTravels API',
+            version='1.0.0',
+            components=Components(
+                security_schemes={
+                    'user_auth': SecurityScheme(type='http', scheme='bearer', bearer_format='JWT'),
+                }
+            ),
+        ),
         dependencies={
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
