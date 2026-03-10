@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from litestar import Litestar, Request
+from litestar.config.cors import CORSConfig
 from litestar.di import Provide
 from litestar.exceptions import HTTPException
 from litestar.openapi import OpenAPIConfig
@@ -73,6 +74,11 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
                     'user_auth': SecurityScheme(type='http', scheme='bearer', bearer_format='JWT'),
                 }
             ),
+        ),
+        cors_config=CORSConfig(
+            allow_origins=app_settings.resolved_cors_allowed_origins,
+            allow_methods=['*'],
+            allow_headers=['*'],
         ),
         dependencies={
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),

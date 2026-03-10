@@ -31,8 +31,10 @@ class AuthService:
             )
         except ConflictError:
             raise
-        except Exception:
-            raise AppError('Failed to register user')
+        except Exception as exc:
+            if self._is_unique_violation_error(exc):
+                raise ConflictError('User with this email already exists') from exc
+            raise AppError('Failed to register user') from exc
 
         return self._issue_tokens(user_id=user['id'])
 
@@ -101,3 +103,12 @@ class AuthService:
             raise AuthenticationError('Invalid token type')
 
         return payload
+
+    def _is_unique_violation_error(self, exc: Exception) -> bool:
+        current: BaseException | None = exc
+        while current:
+            text = str(current).lower()
+            if 'duplicate key' in text or 'unique constraint' in text:
+                return True
+            current = current.__cause__ or current.__context__
+        return False

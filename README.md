@@ -24,6 +24,7 @@ MVP backend API for marking visited countries on a political map.
    ```bash
    cp .env.example .env
    ```
+   For local UI integration, keep `GEOTRAVELS_CORS_ALLOWED_ORIGINS=http://localhost:5173`.
 4. Run migrations and seed countries:
    ```bash
    uv run python manage.py migrate

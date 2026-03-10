@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
 
@@ -16,6 +17,7 @@ class AppSettings(BaseSettings):
 
     app_name: str
     countries_geojson_path: Path
+    cors_allowed_origins: str = 'http://localhost:5173'
     auth: AuthSettings = Field(default_factory=AuthSettings)
     db: DBSettings = Field(default_factory=DBSettings)
 
@@ -24,6 +26,20 @@ class AppSettings(BaseSettings):
         if self.countries_geojson_path.is_absolute():
             return self.countries_geojson_path
         return BASE_DIR / self.countries_geojson_path
+
+    @property
+    def resolved_cors_allowed_origins(self) -> list[str]:
+        raw = self.cors_allowed_origins.strip()
+        if not raw:
+            return []
+
+        if raw.startswith('['):
+            parsed = json.loads(raw)
+            if not isinstance(parsed, list):
+                raise ValueError('GEOTRAVELS_CORS_ALLOWED_ORIGINS JSON value must be a list')
+            return [str(item).strip() for item in parsed if str(item).strip()]
+
+        return [item.strip() for item in raw.split(',') if item.strip()]
 
 
 @lru_cache(maxsize=1)

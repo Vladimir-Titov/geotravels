@@ -56,3 +56,16 @@ def test_mark_unknown_country_returns_404(client) -> None:
         json={'country_code': 'ZZ'},
     )
     assert mark_response.status_code == 404
+
+
+def test_cors_preflight(client) -> None:
+    response = client.options(
+        '/api/v1/countries',
+        headers={
+            'Origin': 'http://localhost:5173',
+            'Access-Control-Request-Method': 'GET',
+        },
+    )
+
+    assert response.status_code == 204
+    assert response.headers['access-control-allow-origin'] == 'http://localhost:5173'
