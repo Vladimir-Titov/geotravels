@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 
+def _count_points(coordinates: object) -> int:
+    if not isinstance(coordinates, list):
+        return 0
+
+    if len(coordinates) == 2 and all(isinstance(value, (int, float)) for value in coordinates):
+        return 1
+
+    return sum(_count_points(item) for item in coordinates)
+
+
 def test_auth_and_visit_flow(client) -> None:
     register_response = client.post(
         '/api/v1/auth/register',
@@ -56,6 +66,20 @@ def test_mark_unknown_country_returns_404(client) -> None:
         json={'country_code': 'ZZ'},
     )
     assert mark_response.status_code == 404
+
+
+def test_countries_geojson_returns_real_polygons(client) -> None:
+    response = client.get('/api/v1/countries/geojson')
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload['type'] == 'FeatureCollection'
+    assert len(payload['features']) > 200
+
+    france = next(feature for feature in payload['features'] if feature['properties']['iso_a2'] == 'FR')
+    assert france['geometry']['type'] in {'Polygon', 'MultiPolygon'}
+    assert _count_points(france['geometry']['coordinates']) > 20
 
 
 def test_cors_preflight(client) -> None:
