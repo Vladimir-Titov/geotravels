@@ -28,6 +28,7 @@ def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
         'uvicorn.error': {'level': level, 'handlers': ['console'], 'propagate': False},
         'uvicorn.access': {'level': 'INFO', 'handlers': ['access_console'], 'propagate': False},
         'litestar': {'level': level, 'handlers': ['console'], 'propagate': False},
+        'geotravels.sql': {'level': level, 'handlers': ['console'], 'propagate': False},
     }
 
     for module, module_level in log_settings.log_module_levels.items():

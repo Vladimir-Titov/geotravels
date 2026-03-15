@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, Protocol, runtime_checkable
@@ -13,6 +14,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.sql import Executable
 
 from settings import AppSettings, DBSettings
+
+sql_logger = logging.getLogger('geotravels.sql')
 
 
 @runtime_checkable
@@ -46,7 +49,10 @@ def _compile_statement(statement: Executable, dialect: Any) -> tuple[str, list[A
     else:
         params = list(compiled.params.values())
 
-    return str(compiled), params
+    sql = str(compiled)
+    sql_logger.debug('SQL: %s | params: %s', sql, params)
+
+    return sql, params
 
 
 class AsyncpgSession:
