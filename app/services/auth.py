@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
+from hashlib import sha256
+import hashlib
+import hmac
+import logging
 from typing import Any
 from uuid import UUID
-
+import arrow
 from app.repositories import RowNotFoundError
 from app.repositories.users import UsersRepository
 from app.services.exceptions import AppError, AuthenticationError, ConflictError
 from helpers.security import decode_token, encode_token, hash_password, verify_password
 from settings import AppSettings
+from urllib.parse import unquote
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -112,3 +120,28 @@ class AuthService:
                 return True
             current = current.__cause__ or current.__context__
         return False
+
+    def verify_telegram_hash(self, telegram_data: dict[str, Any]) -> bool:
+        secret_key = hashlib.sha256(self.settings.auth.telegram_bot_token.encode()).digest()
+        telegram_hash = telegram_data.pop('hash')
+        data_check_string = '\n'.join([f'{k}={v}' for k, v in sorted(telegram_data.items())])
+        calculated_hash = hmac.new(secret_key, data_check_string.encode(), digestmod=hashlib.sha256).hexdigest()
+        return hmac.compare_digest(calculated_hash, telegram_hash)
+
+    async def check_telegram_constraint(self, telegram_data: dict[str, Any]) -> None:
+        auth_date = arrow.get(telegram_data['auth_date'])
+        if auth_date.shift(hours=self.settings.auth.telegram_auth_date_ttl_hours) <= arrow.utcnow():
+            raise AuthenticationError('Telegram auth date is too old')
+
+    async def login_via_telegram(
+        self,
+        telegram_data: dict[str, Any],
+    ) -> dict[str, str]:  # todo: make telegram_data like TypedDict
+        await self.check_telegram_constraint(telegram_data)
+        verifies_telegram_data = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
+        if not verifies_telegram_data:
+            raise AuthenticationError('Invalid telegram hash')
+        user = await self.users_repository.get_user_by_telegram_id(telegram_data['id'])
+        if not user:
+            user = await self.users_repository.create(telegram_id=telegram_data['id'])
+        return self._issue_tokens(user['id'])

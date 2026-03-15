@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 
 from litestar import Router, post
 from litestar.exceptions import HTTPException
@@ -11,7 +12,10 @@ from web.api.schemas import (
     RefreshRequest,
     RegisterRequest,
     TokenPairResponse,
+    TelegramAuthRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @post('/register', tags=['auth'])
@@ -41,4 +45,14 @@ async def refresh(data: RefreshRequest, auth_service: AuthService) -> AccessToke
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-auth_router = Router(path='/api/v1/auth', route_handlers=[register, login, refresh])
+@post('/telegram', tags=['auth'])
+async def telegram_login(data: TelegramAuthRequest, auth_service: AuthService) -> TokenPairResponse:
+    try:
+        payload = await auth_service.login_via_telegram(telegram_data=data.model_dump(exclude_none=True))
+        return TokenPairResponse(**payload)
+    except ServiceError as exc:
+        logger.exception(f'Telegram login failed: {exc}')
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+auth_router = Router(path='/api/v1/auth', route_handlers=[register, login, refresh, telegram_login])

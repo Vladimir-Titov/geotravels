@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings
 from settings.auth import AuthSettings
 from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
 from settings.db import DBSettings
+from settings.logging import LogSettings
 
 
 class AppSettings(BaseSettings):
@@ -20,6 +21,7 @@ class AppSettings(BaseSettings):
     cors_allowed_origins: str = 'http://localhost:5173'
     auth: AuthSettings = Field(default_factory=AuthSettings)
     db: DBSettings = Field(default_factory=DBSettings)
+    log: LogSettings = Field(default_factory=LogSettings)
 
     @property
     def resolved_countries_geojson_path(self) -> Path:

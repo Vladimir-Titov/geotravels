@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from litestar import Litestar, Request
 from litestar.config.cors import CORSConfig
 from litestar.di import Provide
 from litestar.exceptions import HTTPException
+from litestar.logging.config import LoggingConfig
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
 
@@ -11,8 +14,53 @@ from app.repositories import CountriesRepository, UsersRepository, VisitsReposit
 from app.services import AuthService, CountriesService, VisitsService
 from app.services.current_user import CurrentUser
 from helpers import DBPool, create_db_pool_from_settings
-from settings import AppSettings, get_settings
+from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
+
+logger = logging.getLogger(__name__)
+
+
+def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
+    level = log_settings.log_level.upper()
+
+    loggers: dict[str, dict] = {
+        'uvicorn': {'level': level, 'handlers': ['console'], 'propagate': False},
+        'uvicorn.error': {'level': level, 'handlers': ['console'], 'propagate': False},
+        'uvicorn.access': {'level': 'INFO', 'handlers': ['access_console'], 'propagate': False},
+        'litestar': {'level': level, 'handlers': ['console'], 'propagate': False},
+    }
+
+    for module, module_level in log_settings.log_module_levels.items():
+        loggers[module] = {'level': module_level.upper(), 'handlers': ['console'], 'propagate': True}
+
+    return LoggingConfig(
+        root={'level': level, 'handlers': ['console']},
+        formatters={
+            'generic': {
+                'format': '%(asctime)s (%(name)s)[%(levelname)s] %(message)s',
+                'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
+                'class': 'logging.Formatter',
+            },
+            'access': {
+                '()': 'uvicorn.logging.AccessFormatter',
+                'format': '%(asctime)s (%(name)s)[%(levelname)s] %(client_addr)s "%(request_line)s" %(status_code)s',
+                'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
+            },
+        },
+        handlers={
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'generic',
+                'stream': 'ext://sys.stdout',
+            },
+            'access_console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'access',
+                'stream': 'ext://sys.stdout',
+            },
+        },
+        loggers=loggers,
+    )
 
 
 def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = None) -> Litestar:
@@ -62,10 +110,16 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
+    def after_exception(exc: Exception, _scope: object) -> None:
+        if not isinstance(exc, HTTPException):
+            logger.exception('Unhandled exception', exc_info=exc)
+
     app = Litestar(
         route_handlers=route_handlers,
         on_startup=[startup],
         on_shutdown=[shutdown],
+        after_exception=[after_exception],
+        logging_config=build_logging_config(app_settings.log),
         openapi_config=OpenAPIConfig(
             title='GeoTravels API',
             version='1.0.0',

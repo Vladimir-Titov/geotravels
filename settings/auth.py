@@ -13,3 +13,6 @@ class AuthSettings(BaseSettings):
     jwt_algorithm: str
     access_token_ttl_minutes: int
     refresh_token_ttl_days: int
+
+    telegram_bot_token: str
+    telegram_auth_date_ttl_hours: int = 24

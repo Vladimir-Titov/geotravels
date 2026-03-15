@@ -60,3 +60,13 @@ class VisitEventResponse(BaseModel):
 class VisitsResponse(BaseModel):
     visits: list[VisitEventResponse]
     visited_country_codes: list[str]
+
+
+class TelegramAuthRequest(BaseModel):
+    id: int
+    first_name: str
+    last_name: str | None = None
+    username: str | None = None
+    photo_url: str | None = None
+    auth_date: int
+    hash: str
