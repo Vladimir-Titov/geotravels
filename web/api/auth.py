@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 
 from litestar import Router, post
@@ -11,8 +12,8 @@ from web.api.schemas import (
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
-    TokenPairResponse,
     TelegramAuthRequest,
+    TokenPairResponse,
 )
 
 logger = logging.getLogger(__name__)

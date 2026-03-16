@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
-from hashlib import sha256
 import hashlib
 import hmac
 import logging
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
+
 import arrow
+
 from app.repositories import RowNotFoundError
 from app.repositories.users import UsersRepository
 from app.services.exceptions import AppError, AuthenticationError, ConflictError
 from helpers.security import decode_token, encode_token, hash_password, verify_password
 from settings import AppSettings
-from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
