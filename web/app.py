@@ -11,6 +11,7 @@ from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
 
 from app.repositories import CountriesRepository, UsersRepository, VisitsRepository
+from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import AuthService, CountriesService, VisitsService
 from app.services.current_user import CurrentUser
 from helpers import DBPool, create_db_pool_from_settings
@@ -76,8 +77,10 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
 
     def provide_auth_service(request: Request) -> AuthService:
         users_repository = UsersRepository(request.app.state.db_pool)
+        telegram_users_repository = TelegramUsersRepository(request.app.state.db_pool)
         return AuthService(
             users_repository=users_repository,
+            telegram_users_repository=telegram_users_repository,
             settings=app_settings,
         )
 

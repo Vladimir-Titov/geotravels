@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any
 from uuid import UUID, uuid7
 
@@ -16,8 +14,8 @@ class UsersRepository(BaseEntityDBRepository):
     async def create(self, **data) -> dict[str, Any]:
         return await super().create(id=uuid7(), **data)
 
-    async def get_user_by_telegram_id(self, telegram_id: int) -> dict[str, Any] | None:
-        return await self.search_first_row(telegram_id=telegram_id)
+    async def get_user_by_telegram_user_id(self, telegram_user_id: int) -> dict[str, Any] | None:
+        return await self.search_first_row(telegram_user_id=telegram_user_id)
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(row.get('id'), str):

@@ -11,6 +11,7 @@ from uuid import UUID
 import arrow
 
 from app.repositories import RowNotFoundError
+from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
 from app.services.exceptions import AppError, AuthenticationError, ConflictError
 from helpers.security import decode_token, encode_token, hash_password, verify_password
@@ -23,9 +24,11 @@ class AuthService:
     def __init__(
         self,
         users_repository: UsersRepository,
+        telegram_users_repository: TelegramUsersRepository,
         settings: AppSettings,
     ):
         self.users_repository = users_repository
+        self.telegram_users_repository = telegram_users_repository
         self.settings = settings
 
     async def register(self, email: str, password: str) -> dict[str, str]:
@@ -141,7 +144,17 @@ class AuthService:
         verifies_telegram_data = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
         if not verifies_telegram_data:
             raise AuthenticationError('Invalid telegram hash')
-        user = await self.users_repository.get_user_by_telegram_id(telegram_data['id'])
+        user = await self.users_repository.get_user_by_telegram_user_id(telegram_data['id'])
         if not user:
-            user = await self.users_repository.create(telegram_id=telegram_data['id'])
+            async with self.users_repository.transaction():
+                await self.telegram_users_repository.create(
+                    telegram_id=telegram_data['id'],
+                    username=telegram_data.get('username'),
+                    first_name=telegram_data.get('first_name'),
+                    last_name=telegram_data.get('last_name'),
+                    language_code=telegram_data.get('language_code'),
+                    photo_url=telegram_data.get('photo_url'),
+                )
+                user = await self.users_repository.create(telegram_user_id=telegram_data['id'])
+
         return self._issue_tokens(user['id'])

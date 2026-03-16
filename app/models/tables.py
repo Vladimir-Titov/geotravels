@@ -49,6 +49,7 @@ telegram_users = Table(
     Column('first_name', String(length=64), nullable=True),
     Column('last_name', String(length=64), nullable=True),
     Column('language_code', String(length=10), nullable=True),
+    Column('photo_url', String(length=128), nullable=True),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
 )
