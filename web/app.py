@@ -122,7 +122,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         after_exception=[after_exception],
         logging_config=build_logging_config(app_settings.log),
         openapi_config=OpenAPIConfig(
-            title='GeoTravels API',
+            title='Tripmark API',
             version='1.0.0',
             components=Components(
                 security_schemes={

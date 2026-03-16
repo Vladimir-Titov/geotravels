@@ -18,7 +18,7 @@ class AppSettings(BaseSettings):
 
     app_name: str
     countries_geojson_path: Path
-    cors_allowed_origins: str = 'http://localhost:5173'
+    cors_allowed_origins: str
     auth: AuthSettings = Field(default_factory=AuthSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     log: LogSettings = Field(default_factory=LogSettings)
