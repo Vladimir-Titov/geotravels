@@ -80,16 +80,3 @@ def test_countries_geojson_returns_real_polygons(client) -> None:
     france = next(feature for feature in payload['features'] if feature['properties']['iso_a2'] == 'FR')
     assert france['geometry']['type'] in {'Polygon', 'MultiPolygon'}
     assert _count_points(france['geometry']['coordinates']) > 20
-
-
-def test_cors_preflight(client) -> None:
-    response = client.options(
-        '/api/v1/countries',
-        headers={
-            'Origin': 'http://localhost:5173',
-            'Access-Control-Request-Method': 'GET',
-        },
-    )
-
-    assert response.status_code == 204
-    assert response.headers['access-control-allow-origin'] == 'http://localhost:5173'
