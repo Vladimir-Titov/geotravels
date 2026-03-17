@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
-from litestar import Router, get
+from litestar import MediaType, Router, get
+from litestar.response import Response
 
 from app.services.countries import CountriesService
 from web.api.schemas import CountriesListResponse, CountryResponse
@@ -14,9 +13,10 @@ async def list_countries(countries_service: CountriesService) -> CountriesListRe
     return CountriesListResponse(items=[CountryResponse(**country) for country in countries])
 
 
-@get('/geojson', tags=['countries'])
-async def countries_geojson(countries_service: CountriesService) -> dict[str, Any]:
-    return countries_service.get_geojson()
+@get('/geojson', tags=['countries'], media_type=MediaType.JSON)
+async def countries_geojson(countries_service: CountriesService) -> Response[bytes]:
+    path = countries_service.settings.resolved_countries_geojson_path
+    return Response(content=path.read_bytes(), media_type=MediaType.JSON)
 
 
 countries_router = Router(path='/api/v1/countries', route_handlers=[list_countries, countries_geojson])
