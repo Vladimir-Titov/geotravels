@@ -43,7 +43,7 @@ jobs:
           GEOTRAVELS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
           GEOTRAVELS_JWT_SECRET: test-secret
           GEOTRAVELS_TELEGRAM_BOT_TOKEN: test-token
-        run: uv run pytest -x -q --ignore=tests/migrations
+        run: uv run pytest -x -q
 
   build-and-push:
     name: Build Docker Image
