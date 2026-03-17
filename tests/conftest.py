@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from litestar.testing import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from app.models.tables import metadata
 from app.repositories.countries import CountriesRepository
@@ -16,12 +16,10 @@ from web.app import create_app
 
 
 @pytest.fixture()
-def settings(tmp_path: Path) -> AppSettings:
-    db_path = tmp_path / 'test.db'
+def settings() -> AppSettings:
     return AppSettings(
         countries_geojson_path=Path('data/countries.geojson'),
-        auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234'),
-        db=DBSettings(database_url=f'sqlite+aiosqlite:///{db_path}'),
+        auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
     )
 
 
@@ -29,6 +27,9 @@ def settings(tmp_path: Path) -> AppSettings:
 def db_pool(settings: AppSettings):
     sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
     try:
+        with sync_engine.connect() as conn:
+            conn.execute(text('CREATE SCHEMA IF NOT EXISTS tripmark'))
+            conn.commit()
         metadata.create_all(sync_engine)
     finally:
         sync_engine.dispose()
