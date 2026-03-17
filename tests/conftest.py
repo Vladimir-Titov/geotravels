@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 
@@ -8,10 +7,8 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
-from app.models.tables import metadata
-from app.repositories.countries import CountriesRepository
-from helpers import create_db_pool_from_settings
-from settings import AppSettings, AuthSettings, DBSettings, to_sync_database_url
+from app.models.tables import countries_table, metadata
+from settings import AppSettings, AuthSettings, to_sync_database_url
 from web.app import create_app
 
 
@@ -25,15 +22,6 @@ def settings() -> AppSettings:
 
 @pytest.fixture()
 def db_pool(settings: AppSettings):
-    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
-    try:
-        with sync_engine.connect() as conn:
-            conn.execute(text('CREATE SCHEMA IF NOT EXISTS tripmark'))
-            conn.commit()
-        metadata.create_all(sync_engine)
-    finally:
-        sync_engine.dispose()
-
     geojson_path = settings.resolved_countries_geojson_path
     with geojson_path.open('r', encoding='utf-8') as source:
         payload = json.load(source)
@@ -43,21 +31,24 @@ def db_pool(settings: AppSettings):
         props = feature.get('properties', {})
         countries.append({'iso_a2': props['iso_a2'], 'name': props['name']})
 
-    async def _prepare():
-        pool = await create_db_pool_from_settings(settings)
-        repo = CountriesRepository(pool)
-        await repo.insert_missing(countries)
-        return pool
-
-    pool = asyncio.run(_prepare())
-
-    yield pool
-
-    asyncio.run(pool.close())
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
+    try:
+        with sync_engine.connect() as conn:
+            conn.execute(text('CREATE SCHEMA IF NOT EXISTS tripmark'))
+            conn.commit()
+        metadata.create_all(sync_engine)
+        with sync_engine.connect() as conn:
+            existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}
+            to_insert = [c for c in countries if c['iso_a2'] not in existing]
+            if to_insert:
+                conn.execute(countries_table.insert(), to_insert)
+            conn.commit()
+    finally:
+        sync_engine.dispose()
 
 
 @pytest.fixture()
 def client(settings: AppSettings, db_pool):
-    app = create_app(settings=settings, db_pool=db_pool)
+    app = create_app(settings=settings)
     with TestClient(app=app) as test_client:
         yield test_client
