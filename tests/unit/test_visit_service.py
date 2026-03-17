@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -15,7 +15,7 @@ from helpers.security import hash_password
 
 async def _create_user(db_pool) -> UUID:
     users_repo = UsersRepository(db_pool)
-    return (await users_repo.create(email='visits@example.com', password_hash=hash_password('secret123')))['id']
+    return (await users_repo.create(email=f'{uuid4()}@example.com', password_hash=hash_password('secret123')))['id']
 
 
 @pytest.mark.asyncio

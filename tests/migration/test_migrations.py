@@ -21,6 +21,7 @@ def test_alembic_upgrade_head_creates_tables() -> None:
     try:
         with engine.connect() as conn:
             conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
             conn.commit()
 
         config = alembic_config(database_url=database_url)
@@ -32,6 +33,7 @@ def test_alembic_upgrade_head_creates_tables() -> None:
     finally:
         with engine.connect() as conn:
             conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
             conn.commit()
         engine.dispose()
 
