@@ -9,7 +9,7 @@ from web.api.schemas import HealthcheckResponse
 logger = logging.getLogger(__name__)
 
 
-@get('/healthcheck', tags=['health'], content_media_type='application/json')
+@get('/healthcheck', tags=['health'])
 async def healthcheck(request: Request) -> HealthcheckResponse:
     state = request.app.state
     status = True
@@ -20,7 +20,7 @@ async def healthcheck(request: Request) -> HealthcheckResponse:
             logger.exception('Healthcheck failed')
             status = False
     return Response(
-        content=HealthcheckResponse(status=status).model_dump_json(),
+        content=HealthcheckResponse(status=status),
         media_type='application/json',
         status_code=200 if status else 503,
     )
