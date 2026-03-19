@@ -12,6 +12,7 @@ class UsersRepository(BaseEntityDBRepository):
         return await self.search_first_row(email=email)
 
     async def create(self, **data) -> dict[str, Any]:
+        raise Exception('Registration is disabled')
         return await super().create(id=uuid7(), **data)
 
     async def get_user_by_telegram_user_id(self, telegram_user_id: int) -> dict[str, Any] | None:
