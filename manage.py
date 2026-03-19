@@ -1,11 +1,11 @@
 # pyright: reportCallIssue=false
-import sentry_sdk
 import asyncio
 import json
 import os
 from pathlib import Path
 
 import click
+import sentry_sdk
 import uvicorn
 from alembic import command
 from alembic.config import Config

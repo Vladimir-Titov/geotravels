@@ -70,3 +70,7 @@ class TelegramAuthRequest(BaseModel):
     photo_url: str | None = None
     auth_date: int
     hash: str
+
+
+class HealthcheckResponse(BaseModel):
+    status: bool
