@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @get('/healthcheck', tags=['health'])
-async def healthcheck(request: Request) -> HealthcheckResponse:
+async def healthcheck(request: Request) -> Response[HealthcheckResponse]:
     state = request.app.state
     status = True
     async with state.db_pool.connection() as connection:
