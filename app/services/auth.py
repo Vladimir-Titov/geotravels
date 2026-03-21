@@ -45,7 +45,7 @@ class AuthService:
             if allowed_after > arrow.utcnow():
                 raise AppError('Please wait before requesting a new code')
 
-        code = str(secrets.randbelow(10 ** 6)).zfill(6)
+        code = str(secrets.randbelow(10**6)).zfill(6)
         expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
         record = await self.otp_requests_repository.create(
             contact=contact,
@@ -154,6 +154,7 @@ class AuthService:
 
     async def login_via_telegram(self, telegram_data: dict[str, Any]) -> dict[str, str]:
         import asyncio
+
         await self.check_telegram_constraint(telegram_data)
         verifies = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
         if not verifies:

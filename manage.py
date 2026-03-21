@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 import click
-import sentry_sdk
 import uvicorn
 from alembic import command
 from alembic.config import Config
@@ -50,6 +49,8 @@ async def seed_countries(settings: AppSettings) -> int:
 
 
 def run_server(reload: bool) -> None:
+    import sentry_sdk
+
     settings = AppSettings()
     if settings.log.sentry_enable:
         sentry_sdk.init(

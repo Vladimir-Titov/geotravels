@@ -77,6 +77,7 @@ async def test_verify_otp_increments_attempts_on_wrong_code(db_pool, settings) -
         await service.verify_otp(otp_id=otp_id, code='000000')
 
     from uuid import UUID
+
     record = await repo.get_by_id(UUID(otp_id))
     assert record['attempts'] == 1
 
@@ -84,6 +85,7 @@ async def test_verify_otp_increments_attempts_on_wrong_code(db_pool, settings) -
 @pytest.mark.asyncio
 async def test_verify_otp_max_attempts_exceeded_raises_error(db_pool, settings) -> None:
     from uuid import UUID
+
     repo = OtpRequestsRepository(db_pool)
     service = make_service(db_pool, settings)
     otp_result = await service.request_otp('maxattempts@example.com')
@@ -98,7 +100,6 @@ async def test_verify_otp_max_attempts_exceeded_raises_error(db_pool, settings) 
 
 @pytest.mark.asyncio
 async def test_verify_otp_expired_raises_authentication_error(db_pool, settings) -> None:
-    from uuid import UUID
     repo = OtpRequestsRepository(db_pool)
     expired_at = arrow.utcnow().shift(minutes=-1).datetime
     record = await repo.create(
@@ -138,7 +139,9 @@ async def test_verify_otp_creates_user_if_not_exists(db_pool, settings) -> None:
 @pytest.mark.asyncio
 async def test_verify_otp_deletes_record_after_success(db_pool, settings) -> None:
     from uuid import UUID
+
     from app.repositories import RowNotFoundError
+
     repo = OtpRequestsRepository(db_pool)
     service = make_service(db_pool, settings)
     otp_result = await service.request_otp('deleterecord@example.com')

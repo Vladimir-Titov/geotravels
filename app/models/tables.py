@@ -1,6 +1,19 @@
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, Date, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Uuid, func
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Uuid,
+    func,
+)
 
 metadata = MetaData(schema='tripmark')
 

@@ -13,8 +13,8 @@ from litestar.openapi.spec import Components, SecurityScheme
 from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import AuthService, CountriesService, VisitsService
-from app.services.otp_sender import MockOtpSender
 from app.services.current_user import CurrentUser
+from app.services.otp_sender import MockOtpSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
