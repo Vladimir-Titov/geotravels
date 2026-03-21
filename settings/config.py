@@ -11,6 +11,7 @@ from settings.auth import AuthSettings
 from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
 from settings.db import DBSettings
 from settings.logging import LogSettings
+from settings.otp import OtpSettings
 
 
 class AppSettings(BaseSettings):
@@ -21,6 +22,7 @@ class AppSettings(BaseSettings):
     cors_allowed_origins: str
     environment: str = 'local'
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    otp: OtpSettings = Field(default_factory=OtpSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     log: LogSettings = Field(default_factory=LogSettings)
 

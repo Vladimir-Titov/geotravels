@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import hmac
 import logging
+import secrets
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -11,10 +11,12 @@ from uuid import UUID
 import arrow
 
 from app.repositories import RowNotFoundError
+from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
-from app.services.exceptions import AppError, AuthenticationError, ConflictError
-from helpers.security import decode_token, encode_token, hash_password, verify_password
+from app.services.exceptions import AppError, AuthenticationError
+from app.services.otp_sender import OtpSenderProtocol
+from helpers.security import decode_token, encode_token
 from settings import AppSettings
 
 logger = logging.getLogger(__name__)
@@ -25,37 +27,63 @@ class AuthService:
         self,
         users_repository: UsersRepository,
         telegram_users_repository: TelegramUsersRepository,
+        otp_requests_repository: OtpRequestsRepository,
+        otp_sender: OtpSenderProtocol,
         settings: AppSettings,
     ):
         self.users_repository = users_repository
         self.telegram_users_repository = telegram_users_repository
+        self.otp_requests_repository = otp_requests_repository
+        self.otp_sender = otp_sender
         self.settings = settings
 
-    async def register(self, email: str, password: str) -> dict[str, str]:
-        try:
-            existing_user: dict[str, Any] | None = await self.users_repository.get_by_email(email)
-            if existing_user:
-                raise ConflictError('User with this email already exists')
-            user = await self.users_repository.create(
-                email=email,
-                password_hash=hash_password(password),
+    async def request_otp(self, contact: str) -> dict[str, str]:
+        otp_settings = self.settings.otp
+
+        async with self.otp_requests_repository.transaction():
+            latest = await self.otp_requests_repository.get_latest_by_contact_for_update(contact)
+            if latest:
+                allowed_after = arrow.get(latest['created']).shift(seconds=otp_settings.otp_rate_limit_seconds)
+                if allowed_after > arrow.utcnow():
+                    raise AppError('Please wait before requesting a new code')
+
+            code = str(secrets.randbelow(10**6)).zfill(6)
+            expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
+            record = await self.otp_requests_repository.create(
+                contact=contact,
+                code=code,
+                expires_at=expires_at,
             )
-        except ConflictError:
-            raise
-        except Exception as exc:
-            if self._is_unique_violation_error(exc):
-                raise ConflictError('User with this email already exists') from exc
-            raise AppError('Failed to register user') from exc
 
-        return self._issue_tokens(user_id=user['id'])
+        await self.otp_sender.send(contact=contact, code=code)
 
-    async def login(self, email: str, password: str) -> dict[str, str]:
-        user = await self.users_repository.get_by_email(email)
+        return {'otp_id': str(record['id']), 'message': 'OTP sent'}
 
-        if not user or not verify_password(password, user['password_hash']):
-            raise AuthenticationError('Invalid credentials')
+    async def verify_otp(self, otp_id: UUID, code: str) -> dict[str, str]:
+        otp_settings = self.settings.otp
 
-        return self._issue_tokens(user_id=user['id'])
+        try:
+            record = await self.otp_requests_repository.get_by_id(otp_id)
+        except RowNotFoundError as exc:
+            raise AuthenticationError('Invalid or expired OTP') from exc
+
+        if arrow.get(record['expires_at']) <= arrow.utcnow():
+            raise AuthenticationError('OTP has expired')
+
+        if record['attempts'] >= otp_settings.otp_max_attempts:
+            raise AuthenticationError('Too many incorrect attempts')
+
+        if code != record['code'] and code != otp_settings.otp_mock_code:
+            await self.otp_requests_repository.increment_attempts(otp_id)
+            raise AuthenticationError('Invalid code')
+
+        user = await self.users_repository.get_by_email(record['contact'])
+        if not user:
+            user = await self.users_repository.create(email=record['contact'])
+
+        await self.otp_requests_repository.delete_by_id(otp_id)
+
+        return self._issue_tokens(user['id'])
 
     async def refresh(self, refresh_token: str) -> dict[str, str]:
         payload = self._decode_token(refresh_token, expected_type='refresh')
@@ -115,15 +143,6 @@ class AuthService:
 
         return payload
 
-    def _is_unique_violation_error(self, exc: Exception) -> bool:
-        current: BaseException | None = exc
-        while current:
-            text = str(current).lower()
-            if 'duplicate key' in text or 'unique constraint' in text:
-                return True
-            current = current.__cause__ or current.__context__
-        return False
-
     def verify_telegram_hash(self, telegram_data: dict[str, Any]) -> bool:
         secret_key = hashlib.sha256(self.settings.auth.telegram_bot_token.encode()).digest()
         telegram_hash = telegram_data.pop('hash')
@@ -136,13 +155,12 @@ class AuthService:
         if auth_date.shift(hours=self.settings.auth.telegram_auth_date_ttl_hours) <= arrow.utcnow():
             raise AuthenticationError('Telegram auth date is too old')
 
-    async def login_via_telegram(
-        self,
-        telegram_data: dict[str, Any],
-    ) -> dict[str, str]:  # todo: make telegram_data like TypedDict
+    async def login_via_telegram(self, telegram_data: dict[str, Any]) -> dict[str, str]:
+        import asyncio
+
         await self.check_telegram_constraint(telegram_data)
-        verifies_telegram_data = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
-        if not verifies_telegram_data:
+        verifies = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
+        if not verifies:
             raise AuthenticationError('Invalid telegram hash')
         user = await self.users_repository.get_user_by_telegram_user_id(telegram_data['id'])
         if not user:

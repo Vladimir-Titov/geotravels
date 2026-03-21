@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,15 +9,6 @@ from jwt import InvalidTokenError
 
 class TokenError(ValueError):
     pass
-
-
-def hash_password(password: str) -> str:
-    # MVP decision: SHA-256 without salt. Replace with Argon2id in next iteration.
-    return hashlib.sha256(password.encode('utf-8')).hexdigest()
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    return hash_password(password) == password_hash
 
 
 def encode_token(
