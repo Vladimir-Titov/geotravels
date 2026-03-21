@@ -2,55 +2,163 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import arrow
 import pytest
 
 from app.models.tables import users_table
+from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
 from app.services.auth import AuthService
-from app.services.exceptions import AuthenticationError, ConflictError
+from app.services.exceptions import AppError, AuthenticationError
+from app.services.otp_sender import MockOtpSender
 
 
-@pytest.mark.asyncio
-async def test_register_and_login(db_pool, settings) -> None:
-    service = AuthService(
+def make_service(db_pool, settings) -> AuthService:
+    return AuthService(
         users_repository=UsersRepository(db_pool),
         telegram_users_repository=TelegramUsersRepository(db_pool),
+        otp_requests_repository=OtpRequestsRepository(db_pool),
+        otp_sender=MockOtpSender(),
         settings=settings,
     )
 
-    register_result = await service.register(email='user@example.com', password='secret123')
-    assert register_result['access_token']
-    assert register_result['refresh_token']
 
-    login_result = await service.login(email='user@example.com', password='secret123')
-    assert login_result['access_token']
-    assert login_result['refresh_token']
+@pytest.mark.asyncio
+async def test_request_otp_creates_record_and_returns_otp_id(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    result = await service.request_otp('user@example.com')
+
+    assert 'otp_id' in result
+    assert result['message'] == 'OTP sent'
 
 
 @pytest.mark.asyncio
-async def test_register_duplicate_email(db_pool, settings) -> None:
-    service = AuthService(
-        users_repository=UsersRepository(db_pool),
-        telegram_users_repository=TelegramUsersRepository(db_pool),
-        settings=settings,
+async def test_request_otp_rate_limit_raises_error(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    await service.request_otp('ratelimit@example.com')
+
+    with pytest.raises(AppError, match='Please wait'):
+        await service.request_otp('ratelimit@example.com')
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_returns_tokens(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('verify@example.com')
+
+    tokens = await service.verify_otp(
+        otp_id=otp_result['otp_id'],
+        code=settings.otp.otp_mock_code,
     )
 
-    await service.register(email='dupe@example.com', password='secret123')
+    assert tokens['access_token']
+    assert tokens['refresh_token']
+    assert tokens['token_type'] == 'bearer'
 
-    with pytest.raises(ConflictError):
-        await service.register(email='dupe@example.com', password='secret123')
+
+@pytest.mark.asyncio
+async def test_verify_otp_wrong_code_raises_authentication_error(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('wrongcode@example.com')
+
+    with pytest.raises(AuthenticationError, match='Invalid code'):
+        await service.verify_otp(otp_id=otp_result['otp_id'], code='000000')
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_increments_attempts_on_wrong_code(db_pool, settings) -> None:
+    repo = OtpRequestsRepository(db_pool)
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('attempts@example.com')
+    otp_id = otp_result['otp_id']
+
+    with pytest.raises(AuthenticationError):
+        await service.verify_otp(otp_id=otp_id, code='000000')
+
+    from uuid import UUID
+    record = await repo.get_by_id(UUID(otp_id))
+    assert record['attempts'] == 1
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_max_attempts_exceeded_raises_error(db_pool, settings) -> None:
+    from uuid import UUID
+    repo = OtpRequestsRepository(db_pool)
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('maxattempts@example.com')
+    otp_id = UUID(otp_result['otp_id'])
+
+    for _ in range(settings.otp.otp_max_attempts):
+        await repo.increment_attempts(otp_id)
+
+    with pytest.raises(AuthenticationError, match='Too many'):
+        await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_expired_raises_authentication_error(db_pool, settings) -> None:
+    from uuid import UUID
+    repo = OtpRequestsRepository(db_pool)
+    expired_at = arrow.utcnow().shift(minutes=-1).datetime
+    record = await repo.create(
+        contact='expired@example.com',
+        code='123456',
+        expires_at=expired_at,
+    )
+    service = make_service(db_pool, settings)
+
+    with pytest.raises(AuthenticationError, match='expired'):
+        await service.verify_otp(otp_id=record['id'], code='123456')
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_unknown_otp_id_raises_error(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+
+    with pytest.raises(AuthenticationError):
+        await service.verify_otp(otp_id=uuid4(), code='123456')
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_creates_user_if_not_exists(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('newuser@example.com')
+
+    tokens = await service.verify_otp(
+        otp_id=otp_result['otp_id'],
+        code=settings.otp.otp_mock_code,
+    )
+
+    user_id = service.get_user_id_from_access_token(tokens['access_token'])
+    user = await UsersRepository(db_pool).get_by_id(user_id)
+    assert user['email'] == 'newuser@example.com'
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_deletes_record_after_success(db_pool, settings) -> None:
+    from uuid import UUID
+    from app.repositories import RowNotFoundError
+    repo = OtpRequestsRepository(db_pool)
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('deleterecord@example.com')
+    otp_id = UUID(otp_result['otp_id'])
+
+    await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
+
+    with pytest.raises(RowNotFoundError):
+        await repo.get_by_id(otp_id)
 
 
 @pytest.mark.asyncio
 async def test_refresh_returns_access_token(db_pool, settings) -> None:
-    service = AuthService(
-        users_repository=UsersRepository(db_pool),
-        telegram_users_repository=TelegramUsersRepository(db_pool),
-        settings=settings,
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('refresh@example.com')
+    tokens = await service.verify_otp(
+        otp_id=otp_result['otp_id'],
+        code=settings.otp.otp_mock_code,
     )
 
-    tokens = await service.register(email='refresh@example.com', password='secret123')
     refreshed = await service.refresh(tokens['refresh_token'])
 
     assert refreshed['access_token']
@@ -59,13 +167,12 @@ async def test_refresh_returns_access_token(db_pool, settings) -> None:
 
 @pytest.mark.asyncio
 async def test_refresh_deleted_user_raises_authentication_error(db_pool, settings) -> None:
-    service = AuthService(
-        users_repository=UsersRepository(db_pool),
-        telegram_users_repository=TelegramUsersRepository(db_pool),
-        settings=settings,
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('deleteduser@example.com')
+    tokens = await service.verify_otp(
+        otp_id=otp_result['otp_id'],
+        code=settings.otp.otp_mock_code,
     )
-
-    tokens = await service.register(email='deleted@example.com', password='secret123')
     user_id = service.get_user_id_from_access_token(tokens['access_token'])
 
     async with db_pool.connection() as conn:
@@ -73,42 +180,3 @@ async def test_refresh_deleted_user_raises_authentication_error(db_pool, setting
 
     with pytest.raises(AuthenticationError):
         await service.refresh(tokens['refresh_token'])
-
-
-@pytest.mark.asyncio
-async def test_register_translates_insert_conflict_to_conflict_error(db_pool, settings, monkeypatch) -> None:
-    users_repository = UsersRepository(db_pool)
-    service = AuthService(
-        users_repository=users_repository, telegram_users_repository=TelegramUsersRepository(db_pool), settings=settings
-    )
-    existing_user = {'id': uuid4()}
-    call_count = 0
-
-    async def fake_get_by_email(_: str):
-        nonlocal call_count
-        call_count += 1
-        return None if call_count == 1 else existing_user
-
-    async def fake_create(email: str, password_hash: str):
-        del email, password_hash
-        raise RuntimeError('duplicate key')
-
-    monkeypatch.setattr(users_repository, 'get_by_email', fake_get_by_email)
-    monkeypatch.setattr(users_repository, 'create', fake_create)
-
-    with pytest.raises(ConflictError):
-        await service.register(email='racy@example.com', password='secret123')
-
-
-@pytest.mark.asyncio
-async def test_login_with_wrong_password(db_pool, settings) -> None:
-    service = AuthService(
-        users_repository=UsersRepository(db_pool),
-        telegram_users_repository=TelegramUsersRepository(db_pool),
-        settings=settings,
-    )
-
-    await service.register(email='badpass@example.com', password='secret123')
-
-    with pytest.raises(AuthenticationError):
-        await service.login(email='badpass@example.com', password='wrongpass')

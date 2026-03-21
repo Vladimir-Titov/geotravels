@@ -10,9 +10,10 @@ from litestar.logging.config import LoggingConfig
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
 
-from app.repositories import CountriesRepository, UsersRepository, VisitsRepository
+from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import AuthService, CountriesService, VisitsService
+from app.services.otp_sender import MockOtpSender
 from app.services.current_user import CurrentUser
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
@@ -76,11 +77,12 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             await app.state.db_pool.close()
 
     def provide_auth_service(request: Request) -> AuthService:
-        users_repository = UsersRepository(request.app.state.db_pool)
-        telegram_users_repository = TelegramUsersRepository(request.app.state.db_pool)
+        db_pool = request.app.state.db_pool
         return AuthService(
-            users_repository=users_repository,
-            telegram_users_repository=telegram_users_repository,
+            users_repository=UsersRepository(db_pool),
+            telegram_users_repository=TelegramUsersRepository(db_pool),
+            otp_requests_repository=OtpRequestsRepository(db_pool),
+            otp_sender=MockOtpSender(),
             settings=app_settings,
         )
 

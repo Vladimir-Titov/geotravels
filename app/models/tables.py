@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, Date, DateTime, ForeignKey, Index, MetaData, String, Table, Uuid, func
+from sqlalchemy import BigInteger, Column, Date, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Uuid, func
 
 metadata = MetaData(schema='tripmark')
 
@@ -9,7 +9,6 @@ users_table = Table(
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
     Column('email', String(length=320), nullable=True),
-    Column('password_hash', String(length=64), nullable=True),
     Column(
         'telegram_user_id', BigInteger(), ForeignKey('telegram_users.telegram_id', ondelete='SET NULL'), nullable=True
     ),
@@ -39,6 +38,17 @@ visits_table = Table(
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
+)
+
+otp_requests_table = Table(
+    'otp_requests',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('contact', String(length=320), nullable=False),
+    Column('code', String(length=16), nullable=False),
+    Column('expires_at', DateTime(timezone=True), nullable=False),
+    Column('attempts', Integer(), nullable=False, server_default='0'),
+    Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
 telegram_users = Table(

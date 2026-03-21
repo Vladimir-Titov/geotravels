@@ -3,17 +3,21 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=256)
+class OtpRequestSchema(BaseModel):
+    contact: str
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=256)
+class OtpRequestResponse(BaseModel):
+    otp_id: str
+    message: str
+
+
+class OtpVerifyRequest(BaseModel):
+    otp_id: str
+    code: str
 
 
 class RefreshRequest(BaseModel):
