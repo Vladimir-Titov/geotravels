@@ -39,19 +39,22 @@ class AuthService:
 
     async def request_otp(self, contact: str) -> dict[str, str]:
         otp_settings = self.settings.otp
-        latest = await self.otp_requests_repository.get_latest_by_contact(contact)
-        if latest:
-            allowed_after = arrow.get(latest['created_at']).shift(seconds=otp_settings.otp_rate_limit_seconds)
-            if allowed_after > arrow.utcnow():
-                raise AppError('Please wait before requesting a new code')
 
-        code = str(secrets.randbelow(10**6)).zfill(6)
-        expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
-        record = await self.otp_requests_repository.create(
-            contact=contact,
-            code=code,
-            expires_at=expires_at,
-        )
+        async with self.otp_requests_repository.transaction():
+            latest = await self.otp_requests_repository.get_latest_by_contact_for_update(contact)
+            if latest:
+                allowed_after = arrow.get(latest['created']).shift(seconds=otp_settings.otp_rate_limit_seconds)
+                if allowed_after > arrow.utcnow():
+                    raise AppError('Please wait before requesting a new code')
+
+            code = str(secrets.randbelow(10**6)).zfill(6)
+            expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
+            record = await self.otp_requests_repository.create(
+                contact=contact,
+                code=code,
+                expires_at=expires_at,
+            )
+
         await self.otp_sender.send(contact=contact, code=code)
 
         return {'otp_id': str(record['id']), 'message': 'OTP sent'}

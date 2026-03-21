@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.models.tables import otp_requests_table
 from app.repositories.base import BaseEntityDBRepository
@@ -16,7 +16,20 @@ class OtpRequestsRepository(BaseEntityDBRepository):
         return await super().create(id=uuid4(), **data)
 
     async def get_latest_by_contact(self, contact: str) -> dict[str, Any] | None:
-        return await self.search_first_row(order_by='-created_at', contact=contact)
+        return await self.search_first_row(order_by='-created', contact=contact)
+
+    async def get_latest_by_contact_for_update(self, contact: str) -> dict[str, Any] | None:
+        query = (
+            select(self.entity)
+            .where(self.entity.c.contact == contact)
+            .order_by(self.entity.c.created.desc())
+            .limit(1)
+            .with_for_update()
+        )
+        async with self.connection() as conn:
+            result = await conn.execute(query)
+            row = result.fetchone()
+        return dict(row._mapping) if row else None
 
     async def increment_attempts(self, otp_id: UUID) -> None:
         query = self.entity.update().where(self.entity.c.id == otp_id).values(attempts=self.entity.c.attempts + 1)
