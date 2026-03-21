@@ -5,7 +5,7 @@ import json
 import pytest_asyncio
 from sqlalchemy import create_engine, text
 
-from app.models.tables import countries_table, metadata
+from app.models.tables import countries_table, metadata, otp_requests_table, telegram_users, users_table, visits_table
 from helpers import create_db_pool_from_settings
 from settings import to_sync_database_url
 
@@ -28,6 +28,10 @@ async def db_pool(settings):
             conn.commit()
         metadata.create_all(sync_engine)
         with sync_engine.connect() as conn:
+            # Keep reference countries, reset mutable business tables for deterministic tests.
+            for table in (visits_table, otp_requests_table, users_table, telegram_users):
+                conn.execute(table.delete())
+
             existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}
             to_insert = [c for c in countries if c['iso_a2'] not in existing]
             if to_insert:
