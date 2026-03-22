@@ -62,7 +62,11 @@ class AuthService:
                     expires_at=expires_at,
                     status='sent',
                 )
+            try:
                 await self.otp_sender.send(contact=contact, code=code)
+            except Exception:  # noqa: BLE001
+                await self.otp_requests_repository.update_status(record['id'], 'failed')
+                raise
         except CountdownError:
             raise
         except Exception as exc:  # noqa: BLE001
