@@ -18,19 +18,16 @@ class ResendOTPSender(OtpSenderProtocol):
         resend.api_key = api_key
 
     async def send(self, contact: str, code: str) -> None:
-        try:
-            result = await asyncio.to_thread(
-                resend.Emails.send,
-                {
-                    'from': self.email_from,
-                    'to': [contact],
-                    'subject': 'Your verification code',
-                    'html': f'<h1>Your verification code is <b>{code}</b></h1>',
-                },
-            )
-            logger.debug('OTP sent to %s, response: %s', contact, result)
-        except Exception as e:
-            logger.exception('Failed to send OTP to %s: %s', contact, e)
+        result = await asyncio.to_thread(
+            resend.Emails.send,
+            {
+                'from': self.email_from,
+                'to': [contact],
+                'subject': 'Your verification code',
+                'html': f'<h1>Your verification code is <b>{code}</b></h1>',
+            },
+        )
+        logger.debug('OTP sent to %s, response: %s', contact, result)
 
 
 class MockOtpSender:

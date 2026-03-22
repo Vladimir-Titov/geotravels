@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from uuid import uuid4
 
 from alembic import command
 from sqlalchemy import create_engine, inspect, text
@@ -61,5 +62,54 @@ def test_seed_countries_is_idempotent() -> None:
     finally:
         with engine.connect() as conn:
             conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.commit()
+        engine.dispose()
+
+
+def test_upgrade_from_otp_auth_handles_existing_rows() -> None:
+    database_url = _sync_url()
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
+            conn.commit()
+
+        config = alembic_config(database_url=database_url)
+        command.upgrade(config, 'a8f2c1d3e7b9')
+
+        otp_id = uuid4()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO tripmark.otp_requests (id, contact, code, expires_at, attempts)
+                    VALUES (:id, :contact, :code, now() + interval '5 minutes', 0)
+                    """
+                ),
+                {'id': str(otp_id), 'contact': 'migration@example.com', 'code': '123456'},
+            )
+            conn.commit()
+
+        command.upgrade(config, 'head')
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT code_hash, status
+                    FROM tripmark.otp_requests
+                    WHERE id = :id
+                    """
+                ),
+                {'id': str(otp_id)},
+            ).mappings().one()
+
+        assert row['code_hash']
+        assert row['status'] == 'sent'
+    finally:
+        with engine.connect() as conn:
+            conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
             conn.commit()
         engine.dispose()
