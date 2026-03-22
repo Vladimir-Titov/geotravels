@@ -9,8 +9,10 @@ from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
 from app.models.tables import countries_table, metadata, otp_requests_table, telegram_users, users_table, visits_table
-from settings import AppSettings, AuthSettings, to_sync_database_url
+from settings import AppSettings, AuthSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
+
+TEST_OTP_MOCK_CODE = '654321'
 
 
 @pytest.fixture()
@@ -18,6 +20,7 @@ def settings() -> AppSettings:
     return AppSettings(
         countries_geojson_path=Path('data/countries.geojson'),
         auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
+        otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
     )
 
 

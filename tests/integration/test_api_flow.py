@@ -11,7 +11,7 @@ def _count_points(coordinates: object) -> int:
     return sum(_count_points(item) for item in coordinates)
 
 
-def _get_tokens(client, email: str) -> dict:
+def _get_tokens(client, email: str, otp_code: str) -> dict:
     """Helper: request OTP then verify with mock code to get tokens."""
     otp_response = client.post(
         '/api/v1/auth/otp/request',
@@ -22,14 +22,14 @@ def _get_tokens(client, email: str) -> dict:
 
     verify_response = client.post(
         '/api/v1/auth/otp/verify',
-        json={'otp_id': otp_id, 'code': '654321'},
+        json={'otp_id': otp_id, 'code': otp_code},
     )
     assert verify_response.status_code == 201
     return verify_response.json()
 
 
-def test_auth_and_visit_flow(client) -> None:
-    tokens = _get_tokens(client, 'api@example.com')
+def test_auth_and_visit_flow(client, settings) -> None:
+    tokens = _get_tokens(client, 'api@example.com', settings.otp.otp_mock_code)
 
     access_token = tokens['access_token']
     refresh_token = tokens['refresh_token']
@@ -65,8 +65,8 @@ def test_auth_and_visit_flow(client) -> None:
     assert refresh_response.json()['access_token']
 
 
-def test_mark_unknown_country_returns_404(client) -> None:
-    tokens = _get_tokens(client, 'api2@example.com')
+def test_mark_unknown_country_returns_404(client, settings) -> None:
+    tokens = _get_tokens(client, 'api2@example.com', settings.otp.otp_mock_code)
     access_token = tokens['access_token']
 
     mark_response = client.post(
