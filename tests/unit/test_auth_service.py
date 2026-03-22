@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from uuid import uuid4
 
 import arrow
@@ -10,16 +11,21 @@ from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
 from app.services.auth import AuthService
-from app.services.exceptions import AppError, AuthenticationError
+from app.services.exceptions import AppError, AuthenticationError, CountdownError
 from app.services.otp_sender import MockOtpSender
 
 
-def make_service(db_pool, settings) -> AuthService:
+class FailingOtpSender:
+    async def send(self, contact: str, code: str) -> None:  # noqa: ARG002
+        raise RuntimeError('send failed')
+
+
+def make_service(db_pool, settings, otp_sender=None) -> AuthService:
     return AuthService(
         users_repository=UsersRepository(db_pool),
         telegram_users_repository=TelegramUsersRepository(db_pool),
         otp_requests_repository=OtpRequestsRepository(db_pool),
-        otp_sender=MockOtpSender(),
+        otp_sender=otp_sender or MockOtpSender(),
         settings=settings,
     )
 
@@ -38,8 +44,21 @@ async def test_request_otp_rate_limit_raises_error(db_pool, settings) -> None:
     service = make_service(db_pool, settings)
     await service.request_otp('ratelimit@example.com')
 
-    with pytest.raises(AppError, match='Please wait'):
+    with pytest.raises(CountdownError, match='Please wait'):
         await service.request_otp('ratelimit@example.com')
+
+
+@pytest.mark.asyncio
+async def test_request_otp_sender_failure_raises_and_marks_request_failed(db_pool, settings) -> None:
+    repo = OtpRequestsRepository(db_pool)
+    service = make_service(db_pool, settings, otp_sender=FailingOtpSender())
+
+    with pytest.raises(AppError, match='Failed to send OTP'):
+        await service.request_otp('senderfail@example.com')
+
+    rows = await repo.search(contact='senderfail@example.com')
+    assert len(rows) == 1
+    assert rows[0]['status'] == 'failed'
 
 
 @pytest.mark.asyncio
@@ -104,8 +123,9 @@ async def test_verify_otp_expired_raises_authentication_error(db_pool, settings)
     expired_at = arrow.utcnow().shift(minutes=-1).datetime
     record = await repo.create(
         contact='expired@example.com',
-        code='123456',
+        code_hash=hashlib.sha256('123456'.encode()).hexdigest(),
         expires_at=expired_at,
+        status='sent',
     )
     service = make_service(db_pool, settings)
 
@@ -137,10 +157,8 @@ async def test_verify_otp_creates_user_if_not_exists(db_pool, settings) -> None:
 
 
 @pytest.mark.asyncio
-async def test_verify_otp_deletes_record_after_success(db_pool, settings) -> None:
+async def test_verify_otp_marks_record_done_after_success(db_pool, settings) -> None:
     from uuid import UUID
-
-    from app.repositories import RowNotFoundError
 
     repo = OtpRequestsRepository(db_pool)
     service = make_service(db_pool, settings)
@@ -149,8 +167,22 @@ async def test_verify_otp_deletes_record_after_success(db_pool, settings) -> Non
 
     await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
 
-    with pytest.raises(RowNotFoundError):
-        await repo.get_by_id(otp_id)
+    record = await repo.get_by_id(otp_id)
+    assert record['status'] == 'done'
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_replay_is_rejected_after_success(db_pool, settings) -> None:
+    from uuid import UUID
+
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('replay@example.com')
+    otp_id = UUID(otp_result['otp_id'])
+
+    await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
+
+    with pytest.raises(AuthenticationError, match='Invalid or expired OTP'):
+        await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,7 @@ from app.repositories import RowNotFoundError
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
-from app.services.exceptions import AppError, AuthenticationError
+from app.services.exceptions import AppError, AuthenticationError, CountdownError
 from app.services.otp_sender import OtpSenderProtocol
 from helpers.security import decode_token, encode_token
 from settings import AppSettings
@@ -40,48 +40,76 @@ class AuthService:
     async def request_otp(self, contact: str) -> dict[str, str]:
         otp_settings = self.settings.otp
 
-        async with self.otp_requests_repository.transaction():
-            latest = await self.otp_requests_repository.get_latest_by_contact_for_update(contact)
-            if latest:
-                allowed_after = arrow.get(latest['created']).shift(seconds=otp_settings.otp_rate_limit_seconds)
-                if allowed_after > arrow.utcnow():
-                    raise AppError('Please wait before requesting a new code')
+        try:
+            async with self.otp_requests_repository.transaction():
+                latest = await self.otp_requests_repository.get_latest_by_contact_for_update(contact)
+                if latest:
+                    allowed_after = arrow.get(latest['created']).shift(seconds=otp_settings.otp_rate_limit_seconds)
+                    if allowed_after > arrow.utcnow():
+                        raise CountdownError(
+                            {
+                                'error': 'Please wait before requesting a new code',
+                                'retry_after': (allowed_after - arrow.utcnow()).seconds,
+                            }
+                        )
 
-            code = str(secrets.randbelow(10**6)).zfill(6)
-            expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
-            record = await self.otp_requests_repository.create(
-                contact=contact,
-                code=code,
-                expires_at=expires_at,
-            )
-
-        await self.otp_sender.send(contact=contact, code=code)
+                code = str(secrets.randbelow(10**6)).zfill(6)
+                expires_at = arrow.utcnow().shift(minutes=otp_settings.otp_ttl_minutes).datetime
+                code_hash = hashlib.sha256(code.encode()).hexdigest()
+                record = await self.otp_requests_repository.create(
+                    contact=contact,
+                    code_hash=code_hash,
+                    expires_at=expires_at,
+                    status='sent',
+                )
+            try:
+                await self.otp_sender.send(contact=contact, code=code)
+            except Exception:  # noqa: BLE001
+                await self.otp_requests_repository.update_status(record['id'], 'failed')
+                raise
+        except CountdownError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception('Failed to send OTP')
+            raise AppError('Failed to send OTP') from exc
 
         return {'otp_id': str(record['id']), 'message': 'OTP sent'}
 
     async def verify_otp(self, otp_id: UUID, code: str) -> dict[str, str]:
         otp_settings = self.settings.otp
+        user: dict[str, Any] | None = None
+        invalid_code = False
 
-        try:
-            record = await self.otp_requests_repository.get_by_id(otp_id)
-        except RowNotFoundError as exc:
-            raise AuthenticationError('Invalid or expired OTP') from exc
+        async with self.users_repository.transaction():
+            try:
+                record = await self.otp_requests_repository.get_by_id_for_update(otp_id)
+            except RowNotFoundError as exc:
+                raise AuthenticationError('Invalid or expired OTP') from exc
 
-        if arrow.get(record['expires_at']) <= arrow.utcnow():
-            raise AuthenticationError('OTP has expired')
+            if record['status'] != 'sent':
+                raise AuthenticationError('Invalid or expired OTP')
 
-        if record['attempts'] >= otp_settings.otp_max_attempts:
-            raise AuthenticationError('Too many incorrect attempts')
+            if arrow.get(record['expires_at']) <= arrow.utcnow():
+                raise AuthenticationError('OTP has expired')
 
-        if code != record['code'] and code != otp_settings.otp_mock_code:
-            await self.otp_requests_repository.increment_attempts(otp_id)
+            if record['attempts'] >= otp_settings.otp_max_attempts:
+                raise AuthenticationError('Too many incorrect attempts')
+
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            if code_hash != record['code_hash'] and code != otp_settings.otp_mock_code:
+                await self.otp_requests_repository.increment_attempts(otp_id)
+                invalid_code = True
+            else:
+                user = await self.users_repository.get_by_email(record['contact'])
+                if not user:
+                    user = await self.users_repository.create(email=record['contact'])
+                await self.otp_requests_repository.update_status(otp_id, 'done')
+
+        if invalid_code:
             raise AuthenticationError('Invalid code')
 
-        user = await self.users_repository.get_by_email(record['contact'])
         if not user:
-            user = await self.users_repository.create(email=record['contact'])
-
-        await self.otp_requests_repository.delete_by_id(otp_id)
+            raise AuthenticationError('Invalid or expired OTP')
 
         return self._issue_tokens(user['id'])
 

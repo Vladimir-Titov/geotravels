@@ -3,10 +3,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete
-
 from app.models.tables import otp_requests_table
-from app.repositories.base import BaseEntityDBRepository
+from app.repositories.base import BaseEntityDBRepository, RowNotFoundError
 
 
 class OtpRequestsRepository(BaseEntityDBRepository):
@@ -23,11 +21,16 @@ class OtpRequestsRepository(BaseEntityDBRepository):
         return rows[0] if rows else None
 
     async def increment_attempts(self, otp_id: UUID) -> None:
-        query = self.entity.update().where(self.entity.c.id == otp_id).values(attempts=self.entity.c.attempts + 1)
-        async with self.connection() as conn:
-            await conn.execute(query)
+        return await self.update_by_id(otp_id, attempts=self.entity.c.attempts + 1)
 
     async def delete_by_id(self, otp_id: UUID) -> None:
-        query = delete(self.entity).where(self.entity.c.id == otp_id)
-        async with self.connection() as conn:
-            await conn.execute(query)
+        return await super().delete_by_id(otp_id)
+
+    async def get_by_id_for_update(self, otp_id: UUID) -> dict[str, Any]:
+        rows = await self.search_for_update(id=otp_id, limit=1)
+        if not rows:
+            raise RowNotFoundError()
+        return rows[0]
+
+    async def update_status(self, otp_id: UUID, status: str) -> None:
+        return await self.update_by_id(otp_id, status=status)

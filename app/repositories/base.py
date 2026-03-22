@@ -310,3 +310,7 @@ class BaseEntityDBRepository(BaseDBRepository):
         items = await self.search(order_by, limit, offset, **filters)
         total = await self.count(**filters)
         return PaginatedResponse(items=items, pagination=Pagination(limit=limit, offset=offset, total=total))
+
+    async def delete_by_id(self, entity_id: int | UUID) -> dict[str, Any]:
+        query = self.entity.delete().where(self.entity.columns['id'] == entity_id)
+        return await self.fetchval(query)
