@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from litestar.testing import TestClient
@@ -49,6 +50,12 @@ def db_pool(settings: AppSettings):
             conn.commit()
     finally:
         sync_engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def mock_resend():
+    with patch('resend.Emails.send', return_value={'id': 'mock-id'}):
+        yield
 
 
 @pytest.fixture()

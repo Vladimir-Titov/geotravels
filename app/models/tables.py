@@ -58,9 +58,10 @@ otp_requests_table = Table(
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
     Column('contact', String(length=320), nullable=False),
-    Column('code', String(length=16), nullable=False),
+    Column('code_hash', String(length=64), nullable=False),
     Column('expires_at', DateTime(timezone=True), nullable=False),
     Column('attempts', Integer(), nullable=False, server_default='0'),
+    Column('status', String(length=20), nullable=False, server_default='sent'),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 

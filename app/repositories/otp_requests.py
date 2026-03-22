@@ -23,11 +23,10 @@ class OtpRequestsRepository(BaseEntityDBRepository):
         return rows[0] if rows else None
 
     async def increment_attempts(self, otp_id: UUID) -> None:
-        query = self.entity.update().where(self.entity.c.id == otp_id).values(attempts=self.entity.c.attempts + 1)
-        async with self.connection() as conn:
-            await conn.execute(query)
+        return await self.update_by_id(otp_id, attempts=self.entity.c.attempts + 1)
 
     async def delete_by_id(self, otp_id: UUID) -> None:
-        query = delete(self.entity).where(self.entity.c.id == otp_id)
-        async with self.connection() as conn:
-            await conn.execute(query)
+        return await self.delete_by_id(otp_id)
+
+    async def update_status(self, otp_id: UUID, status: str) -> None:
+        return await self.update_by_id(otp_id, status=status)

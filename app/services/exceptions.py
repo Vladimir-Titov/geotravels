@@ -23,3 +23,7 @@ class NotFoundError(ServiceError):
 
 class AppError(ServiceError):
     status_code = 500
+
+
+class CountdownError(ServiceError):
+    status_code = 429

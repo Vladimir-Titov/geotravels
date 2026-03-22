@@ -14,7 +14,7 @@ from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRe
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import AuthService, CountriesService, VisitsService
 from app.services.current_user import CurrentUser
-from app.services.otp_sender import MockOtpSender
+from app.services.otp_sender import ResendOTPSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
@@ -82,7 +82,10 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             users_repository=UsersRepository(db_pool),
             telegram_users_repository=TelegramUsersRepository(db_pool),
             otp_requests_repository=OtpRequestsRepository(db_pool),
-            otp_sender=MockOtpSender(),
+            otp_sender=ResendOTPSender(
+                api_key=app_settings.otp.resend_api_key,
+                email_from=app_settings.otp.resend_email_from,
+            ),
             settings=app_settings,
         )
 
