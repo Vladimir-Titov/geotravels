@@ -49,7 +49,7 @@ async def test_request_otp_rate_limit_raises_error(db_pool, settings) -> None:
 
 
 @pytest.mark.asyncio
-async def test_request_otp_sender_failure_raises_and_rolls_back(db_pool, settings) -> None:
+async def test_request_otp_sender_failure_raises_and_marks_request_failed(db_pool, settings) -> None:
     repo = OtpRequestsRepository(db_pool)
     service = make_service(db_pool, settings, otp_sender=FailingOtpSender())
 
@@ -57,7 +57,8 @@ async def test_request_otp_sender_failure_raises_and_rolls_back(db_pool, setting
         await service.request_otp('senderfail@example.com')
 
     rows = await repo.search(contact='senderfail@example.com')
-    assert rows == []
+    assert len(rows) == 1
+    assert rows[0]['status'] == 'failed'
 
 
 @pytest.mark.asyncio
