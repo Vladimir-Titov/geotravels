@@ -76,5 +76,9 @@ class TelegramAuthRequest(BaseModel):
     hash: str
 
 
+class TelegramAppAuthRequest(BaseModel):
+    init_data: str
+
+
 class HealthcheckResponse(BaseModel):
     status: bool
