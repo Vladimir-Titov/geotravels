@@ -14,6 +14,7 @@ from web.api.schemas import (
     OtpRequestSchema,
     OtpVerifyRequest,
     RefreshRequest,
+    TelegramAppAuthRequest,
     TelegramAuthRequest,
     TokenPairResponse,
 )
@@ -60,4 +61,14 @@ async def telegram_login(data: TelegramAuthRequest, auth_service: AuthService) -
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-auth_router = Router(path='/api/v1/auth', route_handlers=[otp_request, otp_verify, refresh, telegram_login])
+@post('/telegram_app', tags=['auth'])
+async def telegram_app_login(data: TelegramAppAuthRequest, auth_service: AuthService) -> TokenPairResponse:
+    try:
+        payload = await auth_service.login_via_telegram_app(init_data=data.init_data)
+        return TokenPairResponse(**payload)
+    except ServiceError as exc:
+        logger.exception(f'Telegram app login failed: {exc}')
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+auth_router = Router(path='/api/v1/auth', route_handlers=[otp_request, otp_verify, refresh, telegram_login, telegram_app_login])

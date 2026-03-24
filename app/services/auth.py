@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import secrets
 from datetime import timedelta
 from typing import Any
+from urllib.parse import parse_qsl
 from uuid import UUID
 
 import arrow
@@ -183,9 +186,49 @@ class AuthService:
         if auth_date.shift(hours=self.settings.auth.telegram_auth_date_ttl_hours) <= arrow.utcnow():
             raise AuthenticationError('Telegram auth date is too old')
 
-    async def login_via_telegram(self, telegram_data: dict[str, Any]) -> dict[str, str]:
-        import asyncio
+    def verify_telegram_app_hash(self, init_data: str) -> bool:
+        params = dict(parse_qsl(init_data, keep_blank_values=True))
+        received_hash = params.pop('hash', '')
+        data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(params.items()))
+        secret_key = hmac.new(
+            key=b'WebAppData',
+            msg=self.settings.auth.telegram_bot_token.encode(),
+            digestmod=hashlib.sha256,
+        ).digest()
+        calculated_hash = hmac.new(
+            key=secret_key,
+            msg=data_check_string.encode(),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(calculated_hash, received_hash)
 
+    async def login_via_telegram_app(self, init_data: str) -> dict[str, str]:
+        params = dict(parse_qsl(init_data, keep_blank_values=True))
+        await self.check_telegram_constraint({'auth_date': int(params['auth_date'])})
+
+        verifies = await asyncio.to_thread(self.verify_telegram_app_hash, init_data)
+        if not verifies:
+            raise AuthenticationError('Invalid telegram app hash')
+
+        user_data = json.loads(params['user'])
+        telegram_id = user_data['id']
+
+        user = await self.users_repository.get_user_by_telegram_user_id(telegram_id)
+        if not user:
+            async with self.users_repository.transaction():
+                await self.telegram_users_repository.create(
+                    telegram_id=telegram_id,
+                    username=user_data.get('username'),
+                    first_name=user_data.get('first_name'),
+                    last_name=user_data.get('last_name'),
+                    language_code=user_data.get('language_code'),
+                    photo_url=user_data.get('photo_url'),
+                )
+                user = await self.users_repository.create(telegram_user_id=telegram_id)
+
+        return self._issue_tokens(user['id'])
+
+    async def login_via_telegram(self, telegram_data: dict[str, Any]) -> dict[str, str]:
         await self.check_telegram_constraint(telegram_data)
         verifies = await asyncio.to_thread(self.verify_telegram_hash, telegram_data)
         if not verifies:
