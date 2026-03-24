@@ -10,6 +10,7 @@ from litestar.logging.config import LoggingConfig
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
 from litestar.plugins.prometheus import PrometheusConfig, PrometheusController
+
 from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import AuthService, CountriesService, VisitsService
