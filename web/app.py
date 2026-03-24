@@ -9,6 +9,7 @@ from litestar.exceptions import HTTPException
 from litestar.logging.config import LoggingConfig
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
+from litestar.plugins.prometheus import PrometheusConfig, PrometheusController
 
 from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
@@ -123,8 +124,15 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         if not isinstance(exc, HTTPException):
             logger.exception('Unhandled exception', exc_info=exc)
 
+    prometheus_config = PrometheusConfig(
+        app_name='tripmark',
+        group_path=True,
+        excluded_http_methods=['OPTIONS'],
+        exclude=[r'^/metrics$', r'^/api/v1/healthcheck$', r'^/schema(?:/.*)?$'],
+    )
     app = Litestar(
-        route_handlers=route_handlers,
+        route_handlers=[*route_handlers, PrometheusController],
+        middleware=[prometheus_config.middleware],
         on_startup=[startup],
         on_shutdown=[shutdown],
         after_exception=[after_exception],

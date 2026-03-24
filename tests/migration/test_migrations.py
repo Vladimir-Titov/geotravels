@@ -94,16 +94,20 @@ def test_upgrade_from_otp_auth_handles_existing_rows() -> None:
         command.upgrade(config, 'head')
 
         with engine.connect() as conn:
-            row = conn.execute(
-                text(
-                    """
+            row = (
+                conn.execute(
+                    text(
+                        """
                     SELECT code_hash, status
                     FROM tripmark.otp_requests
                     WHERE id = :id
                     """
-                ),
-                {'id': str(otp_id)},
-            ).mappings().one()
+                    ),
+                    {'id': str(otp_id)},
+                )
+                .mappings()
+                .one()
+            )
 
         assert row['code_hash']
         assert row['status'] == 'sent'
