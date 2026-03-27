@@ -71,4 +71,6 @@ async def telegram_app_login(data: TelegramAppAuthRequest, auth_service: AuthSer
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-auth_router = Router(path='/api/v1/auth', route_handlers=[otp_request, otp_verify, refresh, telegram_login, telegram_app_login])
+auth_router = Router(
+    path='/api/v1/auth', route_handlers=[otp_request, otp_verify, refresh, telegram_login, telegram_app_login]
+)

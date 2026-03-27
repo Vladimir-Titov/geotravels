@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from litestar import MediaType, Router, get
 from litestar.response import Response
 

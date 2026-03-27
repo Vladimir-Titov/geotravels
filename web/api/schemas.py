@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from uuid import UUID
 
@@ -82,3 +83,14 @@ class TelegramAppAuthRequest(BaseModel):
 
 class HealthcheckResponse(BaseModel):
     status: bool
+
+
+@dataclass(eq=False)
+class SearchVisitsRequests:
+    country_code: list[str] | None = field(default=None)
+    trip_date_ge: date | None = field(default=None)
+    trip_date_le: date | None = field(default=None)
+    trip_date: datetime | None = field(default=None)
+    id: UUID | None = field(default=None)
+    limit: int = field(default=100)
+    offset: int = field(default=0)

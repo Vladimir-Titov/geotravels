@@ -37,10 +37,9 @@ class VisitsService:
                 trip_date=trip_date,
             )
 
-    async def list_visits(self, user_id: UUID) -> dict[str, Any]:
-        async with self.visits_repository.transaction():
-            visits = await self.visits_repository.list_by_user(user_id=user_id)
-            unique_codes = await self.visits_repository.list_unique_country_codes_by_user(user_id=user_id)
+    async def search_visits(self, user_id: UUID, **filters) -> dict[str, Any]:
+        visits = await self.visits_repository.search(user_id=user_id, **filters)
+        unique_codes = await self.visits_repository.list_unique_country_codes_by_user(user_id=user_id)
 
         return {
             'visits': visits,
