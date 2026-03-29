@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -45,3 +43,15 @@ class VisitsService:
             'visits': visits,
             'visited_country_codes': unique_codes,
         }
+
+    async def update_visit_by_id(self, visit_id: UUID, user_id: UUID, **kwargs) -> dict[str, Any]:
+        visit = await self.visits_repository.search_first_row(user_id=user_id, id=visit_id)
+        if not visit:
+            raise NotFoundError('Visit not found')
+        return await self.visits_repository.update_by_id(entity_id=visit_id, **kwargs)
+
+    async def delete_visit_by_id(self, visit_id: UUID, user_id: UUID) -> None:
+        visit = await self.visits_repository.search_first_row(user_id=user_id, id=visit_id)
+        if not visit:
+            raise NotFoundError('Visit not found')
+        await self.visits_repository.delete_by_id(entity_id=visit_id)

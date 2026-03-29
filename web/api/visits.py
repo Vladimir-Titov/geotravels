@@ -1,6 +1,6 @@
-from __future__ import annotations
+from uuid import UUID
 
-from litestar import Router, get, patch, post, put
+from litestar import Router, delete, get, patch, post, put
 from litestar.exceptions import HTTPException
 
 from app.services.current_user import CurrentUser
@@ -43,15 +43,15 @@ async def search_visits(
     )
 
 
-@put('', tags=['visits'], security=[{'user_auth': []}])
-async def update_visit(
-    visit_id: int,
+@patch('/{visit_id:uuid}', tags=['visits'], security=[{'user_auth': []}])
+async def update_visit_by_id(
+    visit_id: UUID,
     data: MarkVisitRequest,
     visits_service: VisitsService,
     current_user: CurrentUser,
 ) -> VisitEventResponse:
     try:
-        visit = await visits_service.update_visit(
+        visit = await visits_service.update_visit_by_id(
             visit_id=visit_id,
             user_id=current_user.id,
             country_code=data.country_code,
@@ -62,23 +62,21 @@ async def update_visit(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@patch('', tags=['visits'], security=[{'user_auth': []}])
-async def patch_visit(
-    visit_id: int,
-    data: MarkVisitRequest,
+@delete('/{visit_id:uuid}', tags=['visits'], security=[{'user_auth': []}])
+async def delete_visit_by_id(
+    visit_id: UUID,
     visits_service: VisitsService,
     current_user: CurrentUser,
-) -> VisitEventResponse:
+) -> None:
     try:
-        visit = await visits_service.patch_visit(
+        await visits_service.delete_visit_by_id(
             visit_id=visit_id,
             user_id=current_user.id,
-            country_code=data.country_code,
-            trip_date=data.trip_date,
         )
-        return VisitEventResponse(**visit)
     except ServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-visits_router = Router(path='/api/v1/visits', route_handlers=[mark_visit, search_visits, update_visit, patch_visit])
+visits_router = Router(
+    path='/api/v1/visits', route_handlers=[mark_visit, search_visits, update_visit_by_id, delete_visit_by_id]
+)
