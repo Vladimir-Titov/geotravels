@@ -37,12 +37,7 @@ class VisitsService:
 
     async def search_visits(self, user_id: UUID, **filters) -> dict[str, Any]:
         visits = await self.visits_repository.search(user_id=user_id, **filters)
-        unique_codes = await self.visits_repository.list_unique_country_codes_by_user(user_id=user_id)
-
-        return {
-            'visits': visits,
-            'visited_country_codes': unique_codes,
-        }
+        return visits
 
     async def update_visit_by_id(self, visit_id: UUID, user_id: UUID, **kwargs) -> dict[str, Any]:
         visit = await self.visits_repository.search_first_row(user_id=user_id, id=visit_id)

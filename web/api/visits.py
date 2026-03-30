@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from litestar import Router, delete, get, patch, post, put
+from litestar import Router, delete, get, patch, post
 from litestar.exceptions import HTTPException
 
 from app.services.current_user import CurrentUser
@@ -27,7 +27,13 @@ async def mark_visit(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@get('', tags=['visits'], security=[{'user_auth': []}], dependencies={'filters': from_query(SearchVisitsRequests)})
+@get(
+    '',
+    tags=['visits'],
+    security=[{'user_auth': []}],
+    dependencies={'filters': from_query(SearchVisitsRequests)},
+    deprecated=True,
+)
 async def search_visits(
     visits_service: VisitsService,
     current_user: CurrentUser,
