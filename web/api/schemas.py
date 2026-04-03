@@ -198,8 +198,6 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: str | None = None
-    telegram_user_id: int | None = None
     created: datetime
     updated: datetime
 
