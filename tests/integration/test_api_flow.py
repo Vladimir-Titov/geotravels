@@ -126,7 +126,7 @@ def test_countries_and_users_list_require_auth_and_support_filters(client, setti
 
 def test_countries_in_filter_works_with_repeated_query_params(client, settings) -> None:
     tokens = _get_tokens(client, 'countries-in@example.com', settings.otp.otp_mock_code)
-    auth_headers = {'Authorization': f"Bearer {tokens['access_token']}"}
+    auth_headers = {'Authorization': f'Bearer {tokens["access_token"]}'}
 
     response = client.get(
         '/api/v1/countries?limit=10&offset=0&iso_a2_in=FR&iso_a2_in=DE',
@@ -140,7 +140,7 @@ def test_countries_in_filter_works_with_repeated_query_params(client, settings) 
 
 def test_visits_user_id_filter_is_ignored(client, settings) -> None:
     tokens = _get_tokens(client, 'visit-filter@example.com', settings.otp.otp_mock_code)
-    auth_headers = {'Authorization': f"Bearer {tokens['access_token']}"}
+    auth_headers = {'Authorization': f'Bearer {tokens["access_token"]}'}
 
     created = client.post('/api/v1/visits', headers=auth_headers, json={'country_code': 'FR'})
     assert created.status_code == 201
