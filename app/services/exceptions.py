@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 
 class ServiceError(Exception):
     status_code = 400
 
-    def __init__(self, detail: str):
+    def __init__(self, detail: Any):
         super().__init__(detail)
         self.detail = detail
 

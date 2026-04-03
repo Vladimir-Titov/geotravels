@@ -2,22 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.repositories.base import PaginatedResponse
 from app.repositories.countries import CountriesRepository
-from helpers.geo import load_geojson
-from settings import AppSettings
 
 
 class CountriesService:
-    def __init__(
-        self,
-        countries_repository: CountriesRepository,
-        settings: AppSettings,
-    ):
+    def __init__(self, countries_repository: CountriesRepository):
         self.countries_repository = countries_repository
-        self.settings = settings
 
-    async def list_countries(self) -> list[dict[str, Any]]:
-        return await self.countries_repository.list_all()
-
-    def get_geojson(self) -> dict[str, Any]:
-        return load_geojson(str(self.settings.resolved_countries_geojson_path))
+    async def list_countries(self, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
+        return await self.countries_repository.paginated_search(
+            order_by='iso_a2',
+            limit=limit,
+            offset=offset,
+            **filters,
+        )

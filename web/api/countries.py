@@ -1,20 +1,31 @@
-from litestar import MediaType, Router, get
-from litestar.response import Response
+from litestar import Router, get
 
 from app.services.countries import CountriesService
-from web.api.schemas import CountriesListResponse, CountryResponse
+from app.services.current_user import CurrentUser
+from web.api.schemas import CountriesListRequest, CountriesListResponse, CountryResponse, PaginationResponse
+from web.utils import from_query
 
 
-@get('', tags=['countries'])
-async def list_countries(countries_service: CountriesService) -> CountriesListResponse:
-    countries = await countries_service.list_countries()
-    return CountriesListResponse(items=[CountryResponse(**country) for country in countries])
+@get(
+    '',
+    tags=['countries'],
+    security=[{'user_auth': []}],
+    dependencies={'filters': from_query(CountriesListRequest)},
+)
+async def list_countries(
+    countries_service: CountriesService,
+    current_user: CurrentUser,  # noqa: ARG001
+    filters: CountriesListRequest,
+) -> CountriesListResponse:
+    data = await countries_service.list_countries(**filters.to_repo_filters())
+    return CountriesListResponse(
+        items=[CountryResponse(**country) for country in data.items],
+        pagination=PaginationResponse(
+            limit=data.pagination.limit,
+            offset=data.pagination.offset,
+            total=data.pagination.total,
+        ),
+    )
 
 
-@get('/geojson', tags=['countries'], media_type=MediaType.JSON)
-async def countries_geojson(countries_service: CountriesService) -> Response[bytes]:
-    path = countries_service.settings.resolved_countries_geojson_path
-    return Response(content=path.read_bytes(), media_type=MediaType.JSON)
-
-
-countries_router = Router(path='/api/v1/countries', route_handlers=[list_countries, countries_geojson])
+countries_router = Router(path='/api/v1/countries', route_handlers=[list_countries])

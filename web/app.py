@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from litestar import Litestar, Request
+from litestar import Litestar, MediaType, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.di import Provide
 from litestar.exceptions import HTTPException
@@ -10,17 +11,35 @@ from litestar.logging.config import LoggingConfig
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.spec import Components, SecurityScheme
 from litestar.plugins.prometheus import PrometheusConfig, PrometheusController
+from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
-from app.services import AuthService, CountriesService, VisitsService
+from app.services import AuthService, CountriesService, UsersService, VisitsService
 from app.services.current_user import CurrentUser
+from app.services.exceptions import AppError, ServiceError
 from app.services.otp_sender import ResendOTPSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
 
 logger = logging.getLogger(__name__)
+
+
+def _service_error_response(exc: ServiceError) -> Response[dict[str, Any]]:
+    return Response(
+        content={'status_code': exc.status_code, 'detail': exc.detail},
+        status_code=exc.status_code,
+        media_type=MediaType.JSON,
+    )
+
+
+def _service_error_handler(_request: Request, exc: ServiceError) -> Response[dict[str, Any]]:
+    return _service_error_response(exc)
+
+
+def _internal_exception_handler(_request: Request, _exc: Exception) -> Response[dict[str, Any]]:
+    return _service_error_response(AppError('Internal Server Error'))
 
 
 def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
@@ -92,18 +111,15 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
 
     def provide_countries_service(request: Request) -> CountriesService:
         countries_repository = CountriesRepository(request.app.state.db_pool)
-        return CountriesService(
-            countries_repository=countries_repository,
-            settings=app_settings,
-        )
+        return CountriesService(countries_repository=countries_repository)
+
+    def provide_users_service(request: Request) -> UsersService:
+        users_repository = UsersRepository(request.app.state.db_pool)
+        return UsersService(users_repository=users_repository)
 
     def provide_visits_service(request: Request) -> VisitsService:
         visits_repository = VisitsRepository(request.app.state.db_pool)
-        countries_repository = CountriesRepository(request.app.state.db_pool)
-        return VisitsService(
-            visits_repository=visits_repository,
-            countries_repository=countries_repository,
-        )
+        return VisitsService(visits_repository=visits_repository)
 
     def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:
         authorization = request.headers.get('Authorization', '')
@@ -121,7 +137,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
     def after_exception(exc: Exception, _scope: object) -> None:
-        if not isinstance(exc, HTTPException):
+        if not isinstance(exc, (HTTPException, ServiceError)):
             logger.exception('Unhandled exception', exc_info=exc)
 
     prometheus_config = PrometheusConfig(
@@ -154,8 +170,13 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         dependencies={
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
+            'users_service': Provide(provide_users_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
+        },
+        exception_handlers={
+            ServiceError: _service_error_handler,
+            HTTP_500_INTERNAL_SERVER_ERROR: _internal_exception_handler,
         },
     )
 
