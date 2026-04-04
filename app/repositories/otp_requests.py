@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from app.models.tables import otp_requests_table
+from app.models.tables import otp_requests
 from app.repositories.base import BaseEntityDBRepository, RowNotFoundError
 
 
 class OtpRequestsRepository(BaseEntityDBRepository):
-    entity = otp_requests_table
+    entity = otp_requests
 
     async def create(self, **data: Any) -> dict[str, Any]:
         return await super().create(id=uuid4(), **data)

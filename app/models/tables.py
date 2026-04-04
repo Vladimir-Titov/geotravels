@@ -17,7 +17,7 @@ from sqlalchemy import (
 
 metadata = MetaData(schema='tripmark')
 
-users_table = Table(
+users = Table(
     'users',
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
@@ -30,7 +30,7 @@ users_table = Table(
     Index('idx_unique_email', 'email', unique=True, postgresql_where=Column('email').is_not(None)),
 )
 
-countries_table = Table(
+countries = Table(
     'countries',
     metadata,
     Column('iso_a2', String(length=2), primary_key=True),
@@ -39,7 +39,7 @@ countries_table = Table(
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
 )
 
-visits_table = Table(
+visits = Table(
     'visits',
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
@@ -53,7 +53,7 @@ visits_table = Table(
     Index('idx_country_code', 'country_code'),
 )
 
-otp_requests_table = Table(
+otp_requests = Table(
     'otp_requests',
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),

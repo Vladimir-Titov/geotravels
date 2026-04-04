@@ -4,12 +4,12 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import select
 
-from app.models.tables import visits_table
+from app.models.tables import visits
 from app.repositories.base import BaseEntityDBRepository
 
 
 class VisitsRepository(BaseEntityDBRepository):
-    entity = visits_table
+    entity = visits
 
     async def create(
         self,
@@ -24,10 +24,10 @@ class VisitsRepository(BaseEntityDBRepository):
 
     async def list_unique_country_codes_by_user(self, user_id: UUID) -> list[str]:
         query = (
-            select(visits_table.c.country_code)
-            .where(visits_table.c.user_id == user_id)
+            select(visits.c.country_code)
+            .where(visits.c.user_id == user_id)
             .distinct()
-            .order_by(visits_table.c.country_code.asc())
+            .order_by(visits.c.country_code.asc())
         )
         rows = await self.fetch(query)
         return [str(row['country_code']) for row in rows]

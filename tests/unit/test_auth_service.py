@@ -6,7 +6,7 @@ from uuid import uuid4
 import arrow
 import pytest
 
-from app.models.tables import users_table
+from app.models.tables import users
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
@@ -211,7 +211,7 @@ async def test_refresh_deleted_user_raises_authentication_error(db_pool, setting
     user_id = service.get_user_id_from_access_token(tokens['access_token'])
 
     async with db_pool.connection() as conn:
-        await conn.execute(users_table.delete().where(users_table.c.id == user_id))
+        await conn.execute(users.delete().where(users.c.id == user_id))
 
     with pytest.raises(AuthenticationError):
         await service.refresh(tokens['refresh_token'])
