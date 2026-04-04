@@ -4,45 +4,46 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from app.repositories.countries import CountriesRepository
+from app.repositories.base import PaginatedResponse
 from app.repositories.visits import VisitsRepository
 from app.services.exceptions import NotFoundError
 
 
 class VisitsService:
-    def __init__(
-        self,
-        visits_repository: VisitsRepository,
-        countries_repository: CountriesRepository,
-    ):
+    def __init__(self, visits_repository: VisitsRepository):
         self.visits_repository = visits_repository
-        self.countries_repository = countries_repository
 
-    async def mark_visited(
+    async def create_visit(
         self,
         user_id: UUID,
         country_code: str,
         trip_date: date | None,
     ) -> dict[str, Any]:
-        normalized_code = country_code.upper()
+        return await self.visits_repository.create(
+            user_id=user_id,
+            country_code=country_code,
+            trip_date=trip_date,
+        )
 
-        async with self.visits_repository.transaction():
-            country = await self.countries_repository.get_by_code(normalized_code)
-            if not country:
-                raise NotFoundError('Country not found')
+    async def list_visits(self, user_id: UUID, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
+        return await self.visits_repository.paginated_search(
+            order_by=['-marked_at', '-id'],
+            limit=limit,
+            offset=offset,
+            user_id=user_id,
+            **filters,
+        )
 
-            return await self.visits_repository.create(
-                user_id=user_id,
-                country_code=normalized_code,
-                trip_date=trip_date,
-            )
+    async def get_visit_by_id(self, visit_id: UUID, user_id: UUID) -> dict[str, Any]:
+        visit = await self.visits_repository.search_first_row(id=visit_id, user_id=user_id)
+        if not visit:
+            raise NotFoundError('Visit not found')
+        return visit
 
-    async def list_visits(self, user_id: UUID) -> dict[str, Any]:
-        async with self.visits_repository.transaction():
-            visits = await self.visits_repository.list_by_user(user_id=user_id)
-            unique_codes = await self.visits_repository.list_unique_country_codes_by_user(user_id=user_id)
+    async def update_visit_by_id(self, visit_id: UUID, user_id: UUID, **payload: Any) -> dict[str, Any]:
+        await self.get_visit_by_id(visit_id=visit_id, user_id=user_id)
+        return await self.visits_repository.update_by_id(entity_id=visit_id, **payload)
 
-        return {
-            'visits': visits,
-            'visited_country_codes': unique_codes,
-        }
+    async def delete_visit_by_id(self, visit_id: UUID, user_id: UUID) -> None:
+        await self.get_visit_by_id(visit_id=visit_id, user_id=user_id)
+        await self.visits_repository.delete_by_id(entity_id=visit_id)

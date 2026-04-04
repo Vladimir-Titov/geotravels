@@ -5,7 +5,6 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.repositories.countries import CountriesRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
 from app.services.exceptions import NotFoundError
@@ -18,32 +17,59 @@ async def _create_user(db_pool) -> UUID:
 
 
 @pytest.mark.asyncio
-async def test_mark_visit_and_list(db_pool) -> None:
+async def test_visit_crud_for_current_user(db_pool) -> None:
     user_id = await _create_user(db_pool)
-    service = VisitsService(
-        visits_repository=VisitsRepository(db_pool),
-        countries_repository=CountriesRepository(db_pool),
-    )
+    service = VisitsService(visits_repository=VisitsRepository(db_pool))
 
-    visit = await service.mark_visited(
+    created = await service.create_visit(
         user_id=user_id,
-        country_code='fr',
+        country_code='FR',
         trip_date=date(2025, 1, 2),
     )
-    assert visit['country_code'] == 'FR'
+    assert created['country_code'] == 'FR'
 
-    data = await service.list_visits(user_id=user_id)
-    assert len(data['visits']) == 1
-    assert data['visited_country_codes'] == ['FR']
+    listed = await service.list_visits(user_id=user_id, limit=100, offset=0)
+    assert len(listed.items) == 1
+    assert listed.pagination.total == 1
+
+    loaded = await service.get_visit_by_id(visit_id=created['id'], user_id=user_id)
+    assert loaded['id'] == created['id']
+
+    updated = await service.update_visit_by_id(
+        visit_id=created['id'],
+        user_id=user_id,
+        trip_date=date(2025, 1, 3),
+    )
+    assert updated['trip_date'] == date(2025, 1, 3)
+
+    await service.delete_visit_by_id(visit_id=created['id'], user_id=user_id)
+
+    after_delete = await service.list_visits(user_id=user_id, limit=100, offset=0)
+    assert after_delete.items == []
+    assert after_delete.pagination.total == 0
 
 
 @pytest.mark.asyncio
-async def test_mark_unknown_country_raises_not_found(db_pool) -> None:
-    user_id = await _create_user(db_pool)
-    service = VisitsService(
-        visits_repository=VisitsRepository(db_pool),
-        countries_repository=CountriesRepository(db_pool),
+async def test_visit_scope_isolated_by_user(db_pool) -> None:
+    owner_id = await _create_user(db_pool)
+    stranger_id = await _create_user(db_pool)
+    service = VisitsService(visits_repository=VisitsRepository(db_pool))
+
+    created = await service.create_visit(
+        user_id=owner_id,
+        country_code='FR',
+        trip_date=None,
     )
 
     with pytest.raises(NotFoundError):
-        await service.mark_visited(user_id=user_id, country_code='zz', trip_date=None)
+        await service.get_visit_by_id(visit_id=created['id'], user_id=stranger_id)
+
+    with pytest.raises(NotFoundError):
+        await service.update_visit_by_id(
+            visit_id=created['id'],
+            user_id=stranger_id,
+            country_code='DE',
+        )
+
+    with pytest.raises(NotFoundError):
+        await service.delete_visit_by_id(visit_id=created['id'], user_id=stranger_id)

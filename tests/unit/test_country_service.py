@@ -7,28 +7,24 @@ from app.services.countries import CountriesService
 
 
 @pytest.mark.asyncio
-async def test_list_countries_and_geojson(db_pool, settings) -> None:
-    service = CountriesService(
-        countries_repository=CountriesRepository(db_pool),
-        settings=settings,
-    )
+async def test_list_countries_paginated(db_pool) -> None:
+    service = CountriesService(countries_repository=CountriesRepository(db_pool))
 
-    countries = await service.list_countries()
-    assert countries
+    result = await service.list_countries(limit=5, offset=0)
 
-    geojson = service.get_geojson()
-    assert geojson['type'] == 'FeatureCollection'
-    assert geojson['features']
+    assert result.items
+    assert len(result.items) <= 5
+    assert result.pagination.limit == 5
+    assert result.pagination.offset == 0
+    assert result.pagination.total >= len(result.items)
 
 
-def test_get_geojson_uses_project_root_for_relative_path(settings, monkeypatch, tmp_path) -> None:
-    service = CountriesService(
-        countries_repository=None,  # type: ignore[arg-type]
-        settings=settings,
-    )
+@pytest.mark.asyncio
+async def test_list_countries_filter_by_iso(db_pool) -> None:
+    service = CountriesService(countries_repository=CountriesRepository(db_pool))
 
-    monkeypatch.chdir(tmp_path)
+    result = await service.list_countries(limit=10, offset=0, iso_a2='FR')
 
-    geojson = service.get_geojson()
-    assert geojson['type'] == 'FeatureCollection'
-    assert geojson['features']
+    assert len(result.items) == 1
+    assert result.items[0]['iso_a2'] == 'FR'
+    assert result.pagination.total == 1
