@@ -224,7 +224,12 @@ class AuthService:
                     language_code=user_data.get('language_code'),
                     photo_url=user_data.get('photo_url'),
                 )
-                user = await self.users_repository.create(telegram_user_id=telegram_id)
+                user = await self.users_repository.create(
+                    telegram_user_id=telegram_id,
+                    username=user_data.get('username'),
+                    first_name=user_data.get('first_name'),
+                    last_name=user_data.get('last_name'),
+                )
 
         return self._issue_tokens(user['id'])
 
@@ -244,6 +249,11 @@ class AuthService:
                     language_code=telegram_data.get('language_code'),
                     photo_url=telegram_data.get('photo_url'),
                 )
-                user = await self.users_repository.create(telegram_user_id=telegram_data['id'])
+                user = await self.users_repository.create(
+                    telegram_user_id=telegram_data['id'],
+                    username=telegram_data.get('username'),
+                    first_name=telegram_data.get('first_name'),
+                    last_name=telegram_data.get('last_name'),
+                )
 
         return self._issue_tokens(user['id'])
