@@ -1,17 +1,17 @@
 from app.models.tables import (
-    countries_table,
+    countries,
     metadata,
-    otp_requests_table,
+    otp_requests,
     telegram_users,
-    users_table,
-    visits_table,
+    users,
+    visits,
 )
 
 __all__ = [
     'metadata',
-    'users_table',
-    'countries_table',
-    'visits_table',
+    'users',
+    'countries',
+    'visits',
     'telegram_users',
-    'otp_requests_table',
+    'otp_requests',
 ]

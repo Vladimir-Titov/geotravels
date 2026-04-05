@@ -1,11 +1,11 @@
 from typing import Any
 
-from app.models.tables import countries_table
+from app.models.tables import countries
 from app.repositories.base import BaseEntityDBRepository
 
 
 class CountriesRepository(BaseEntityDBRepository):
-    entity = countries_table
+    entity = countries
 
     async def list_all(self, **filters) -> list[dict[str, Any]]:
         return await self.search(**filters)
