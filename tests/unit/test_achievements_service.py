@@ -44,8 +44,19 @@ async def test_list_achievements_and_my_earned(db_pool) -> None:
     all_ids = {item['id'] for item in all_achievements.items}
     assert {earned['id'], not_earned['id']}.issubset(all_ids)
 
+    sorted_by_title = await service.list_achievements(limit=100, offset=0, order_by='title')
+    assert [item['title'] for item in sorted_by_title.items] == ['Explorer', 'First Trip']
+
+    filtered_all = await service.list_achievements(limit=100, offset=0, title='Explorer')
+    assert filtered_all.pagination.total == 1
+    assert filtered_all.items[0]['id'] == not_earned['id']
+
     my_achievements = await service.list_user_achievements(user_id=me_id, limit=100, offset=0)
     assert my_achievements.pagination.total == 1
     assert my_achievements.items[0]['id'] == earned['id']
     assert my_achievements.items[0]['user_id'] == me_id
     assert my_achievements.items[0]['complete_at'] is not None
+
+    filtered_my = await service.list_user_achievements(user_id=me_id, limit=100, offset=0, title='First Trip')
+    assert filtered_my.pagination.total == 1
+    assert filtered_my.items[0]['id'] == earned['id']

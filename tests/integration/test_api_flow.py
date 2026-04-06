@@ -287,21 +287,35 @@ def test_achievements_list_and_my_achievements_are_user_scoped(client, settings)
 
     seeded = _seed_achievements_for_users(settings, user_id=me_user_id, other_user_id=other_user_id)
 
-    list_response = client.get('/api/v1/achievements?limit=10&offset=0', headers=me_headers)
+    list_response = client.get('/api/v1/achievements?limit=10&offset=0&order_by=title', headers=me_headers)
     assert list_response.status_code == 200
     list_payload = list_response.json()
     assert list_payload['pagination']['total'] == 2
+    assert [item['title'] for item in list_payload['items']] == ['Explorer', 'First Trip']
     assert {item['id'] for item in list_payload['items']} == {
         seeded['earned_id'],
         seeded['foreign_earned_id'],
     }
 
-    my_response = client.get('/api/v1/achievements/my?limit=10&offset=0', headers=me_headers)
+    filtered_list = client.get('/api/v1/achievements?limit=10&offset=0&title=Explorer', headers=me_headers)
+    assert filtered_list.status_code == 200
+    filtered_payload = filtered_list.json()
+    assert filtered_payload['pagination']['total'] == 1
+    assert filtered_payload['items'][0]['id'] == seeded['foreign_earned_id']
+
+    my_response = client.get('/api/v1/achievements/my?limit=10&offset=0&title=First%20Trip', headers=me_headers)
     assert my_response.status_code == 200
     my_payload = my_response.json()
     assert my_payload['pagination']['total'] == 1
     assert my_payload['items'][0]['id'] == seeded['earned_id']
     assert my_payload['items'][0]['complete_at']
+
+    my_foreign_filtered = client.get(
+        f'/api/v1/achievements/my?limit=10&offset=0&id={seeded["foreign_earned_id"]}',
+        headers=me_headers,
+    )
+    assert my_foreign_filtered.status_code == 200
+    assert my_foreign_filtered.json()['pagination']['total'] == 0
 
     other_response = client.get('/api/v1/achievements/my?limit=10&offset=0', headers=other_headers)
     assert other_response.status_code == 200

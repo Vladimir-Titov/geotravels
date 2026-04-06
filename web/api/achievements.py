@@ -6,11 +6,12 @@ from app.services.achievements import AchievementsService
 from app.services.current_user import CurrentUser
 from web.api.schemas import (
     AchievementResponse,
+    AchievementsListRequest,
     AchievementsListResponse,
-    BaseListRequest,
     EarnedAchievementResponse,
     EarnedAchievementsListResponse,
     PaginationResponse,
+    UserAchievementsListRequest,
 )
 from web.utils import from_query
 
@@ -19,14 +20,14 @@ from web.utils import from_query
     '',
     tags=['achievements'],
     security=[{'user_auth': []}],
-    dependencies={'filters': from_query(BaseListRequest)},
+    dependencies={'filters': from_query(AchievementsListRequest)},
 )
 async def list_achievements(
     achievements_service: AchievementsService,
     current_user: CurrentUser,  # noqa: ARG001
-    filters: BaseListRequest,
+    filters: AchievementsListRequest,
 ) -> AchievementsListResponse:
-    data = await achievements_service.list_achievements(limit=filters.limit, offset=filters.offset)
+    data = await achievements_service.list_achievements(**filters.to_repo_filters())
     return AchievementsListResponse(
         items=[AchievementResponse(**item) for item in data.items],
         pagination=PaginationResponse(
@@ -41,17 +42,17 @@ async def list_achievements(
     '/my',
     tags=['achievements'],
     security=[{'user_auth': []}],
-    dependencies={'filters': from_query(BaseListRequest)},
+    dependencies={'filters': from_query(UserAchievementsListRequest)},
 )
 async def list_my_achievements(
     achievements_service: AchievementsService,
     current_user: CurrentUser,
-    filters: BaseListRequest,
+    filters: UserAchievementsListRequest,
 ) -> EarnedAchievementsListResponse:
+    repo_filters = filters.to_repo_filters()
     data = await achievements_service.list_user_achievements(
         user_id=current_user.id,
-        limit=filters.limit,
-        offset=filters.offset,
+        **repo_filters,
     )
     return EarnedAchievementsListResponse(
         items=[EarnedAchievementResponse(**item) for item in data.items],
