@@ -86,20 +86,3 @@ class S3FileStorage:
         except Exception:  # noqa: BLE001
             logger.exception('S3 liveness check failed')
             return False
-
-
-class InMemoryFileStorage:
-    def __init__(self) -> None:
-        self._objects: dict[str, bytes] = {}
-
-    async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:  # noqa: ARG002
-        self._objects[key] = content
-        return f'memory://{key}'
-
-    async def delete_file(self, file_url: str) -> None:
-        parsed = urlparse(file_url)
-        key = f'{parsed.netloc}{parsed.path}'
-        self._objects.pop(key, None)
-
-    async def check_connection(self) -> bool:
-        return True

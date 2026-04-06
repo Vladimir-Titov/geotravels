@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
@@ -36,10 +35,6 @@ def _get_user_id_by_email(client, auth_headers: dict[str, str], email: str) -> s
 
 def _auth_headers(tokens: dict) -> dict[str, str]:
     return {'Authorization': f'Bearer {tokens["access_token"]}'}
-
-
-def _base64_content(payload: bytes) -> str:
-    return base64.b64encode(payload).decode()
 
 
 def _prepare_followers_context(client, settings) -> dict[str, str]:
@@ -189,13 +184,11 @@ def test_files_crud_for_owner(client, settings) -> None:
     create_file_response = client.post(
         '/api/v1/files',
         headers=auth_headers,
-        json={
+        data={
             'visit_id': visit_id,
-            'filename': 'paris.jpg',
-            'file_type': 'image/jpeg',
             'is_private': False,
-            'content_base64': _base64_content(b'fake-image-content'),
         },
+        files={'file': ('paris.jpg', b'fake-image-content', 'image/jpeg')},
     )
     assert create_file_response.status_code == 201
     created_file = create_file_response.json()
@@ -239,13 +232,11 @@ def test_files_visibility_and_ownership(client, settings) -> None:
     public_file = client.post(
         '/api/v1/files',
         headers=owner_headers,
-        json={
+        data={
             'visit_id': visit_id,
-            'filename': 'public.jpg',
-            'file_type': 'image/jpeg',
             'is_private': False,
-            'content_base64': _base64_content(b'public-bytes'),
         },
+        files={'file': ('public.jpg', b'public-bytes', 'image/jpeg')},
     )
     assert public_file.status_code == 201
     public_file_id = public_file.json()['id']
@@ -253,13 +244,11 @@ def test_files_visibility_and_ownership(client, settings) -> None:
     private_file = client.post(
         '/api/v1/files',
         headers=owner_headers,
-        json={
+        data={
             'visit_id': visit_id,
-            'filename': 'private.jpg',
-            'file_type': 'image/jpeg',
             'is_private': True,
-            'content_base64': _base64_content(b'private-bytes'),
         },
+        files={'file': ('private.jpg', b'private-bytes', 'image/jpeg')},
     )
     assert private_file.status_code == 201
 

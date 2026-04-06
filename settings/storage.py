@@ -11,6 +11,6 @@ class StorageSettings(BaseSettings):
     s3_endpoint_url: str = 'http://localhost:9000'
     s3_access_key_id: str = 'minioadmin'
     s3_secret_access_key: str = 'minioadmin'
-    s3_bucket_name: str = 'tripmark-files'
+    s3_bucket_name: str = 'user-bucket'
     s3_region_name: str = 'us-east-1'
     s3_use_ssl: bool = False

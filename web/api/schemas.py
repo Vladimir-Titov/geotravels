@@ -377,14 +377,6 @@ class FollowRequest(BaseModel):
     following_id: UUID
 
 
-class CreateVisitFileRequest(BaseModel):
-    visit_id: UUID
-    content_base64: str = Field(min_length=1)
-    filename: str | None = Field(default=None, max_length=64)
-    file_type: str | None = Field(default=None, max_length=64)
-    is_private: bool = False
-
-
 class UpdateFileRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=64)
 
