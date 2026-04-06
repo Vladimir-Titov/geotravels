@@ -7,6 +7,7 @@ from app.repositories.base import (
     RowNotFoundError,
 )
 from app.repositories.countries import CountriesRepository
+from app.repositories.files import FilesRepository
 from app.repositories.followers import FollowersRepository
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.users import UsersRepository
@@ -23,6 +24,7 @@ __all__ = [
     'UsersRepository',
     'UsersAchievementsRepository',
     'CountriesRepository',
+    'FilesRepository',
     'FollowersRepository',
     'OtpRequestsRepository',
     'VisitsRepository',

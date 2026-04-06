@@ -9,6 +9,8 @@ from app.models.tables import (
     achievements,
     cities,
     countries,
+    files,
+    files_visits,
     followers,
     metadata,
     otp_requests,
@@ -41,7 +43,9 @@ async def db_pool(settings):
         with sync_engine.connect() as conn:
             # Keep reference countries, reset mutable business tables for deterministic tests.
             for table in (
+                files_visits,
                 users_achievements,
+                files,
                 achievements,
                 visits,
                 followers,

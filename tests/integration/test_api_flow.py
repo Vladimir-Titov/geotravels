@@ -173,6 +173,106 @@ def test_visits_are_user_scoped(client, settings) -> None:
     assert delete_response.status_code == 404
 
 
+def test_files_crud_for_owner(client, settings) -> None:
+    tokens = _get_tokens(client, 'files-owner@example.com', settings.otp.otp_mock_code)
+    auth_headers = _auth_headers(tokens)
+
+    created_visit = client.post('/api/v1/visits', headers=auth_headers, json={'country_code': 'FR'})
+    assert created_visit.status_code == 201
+    visit_id = created_visit.json()['id']
+
+    create_file_response = client.post(
+        '/api/v1/files',
+        headers=auth_headers,
+        data={
+            'visit_id': visit_id,
+            'is_private': False,
+        },
+        files={'file': ('paris.jpg', b'fake-image-content', 'image/jpeg')},
+    )
+    assert create_file_response.status_code == 201
+    created_file = create_file_response.json()
+    assert created_file['visit_id'] == visit_id
+    assert created_file['filename'] == 'paris.jpg'
+
+    mine_response = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
+    assert mine_response.status_code == 200
+    mine_payload = mine_response.json()
+    assert mine_payload['pagination']['total'] == 1
+    assert mine_payload['items'][0]['id'] == created_file['id']
+
+    update_response = client.patch(
+        f"/api/v1/files/{created_file['id']}",
+        headers=auth_headers,
+        json={'filename': 'eiffel.jpg'},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()['filename'] == 'eiffel.jpg'
+
+    delete_response = client.delete(f"/api/v1/files/{created_file['id']}", headers=auth_headers)
+    assert delete_response.status_code == 200
+
+    after_delete = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
+    assert after_delete.status_code == 200
+    assert after_delete.json()['pagination']['total'] == 0
+
+
+def test_files_visibility_and_ownership(client, settings) -> None:
+    owner_tokens = _get_tokens(client, 'files-owner2@example.com', settings.otp.otp_mock_code)
+    stranger_tokens = _get_tokens(client, 'files-stranger@example.com', settings.otp.otp_mock_code)
+
+    owner_headers = _auth_headers(owner_tokens)
+    stranger_headers = _auth_headers(stranger_tokens)
+    owner_user_id = _get_user_id_by_email(client, owner_headers, 'files-owner2@example.com')
+
+    created_visit = client.post('/api/v1/visits', headers=owner_headers, json={'country_code': 'IT'})
+    assert created_visit.status_code == 201
+    visit_id = created_visit.json()['id']
+
+    public_file = client.post(
+        '/api/v1/files',
+        headers=owner_headers,
+        data={
+            'visit_id': visit_id,
+            'is_private': False,
+        },
+        files={'file': ('public.jpg', b'public-bytes', 'image/jpeg')},
+    )
+    assert public_file.status_code == 201
+    public_file_id = public_file.json()['id']
+
+    private_file = client.post(
+        '/api/v1/files',
+        headers=owner_headers,
+        data={
+            'visit_id': visit_id,
+            'is_private': True,
+        },
+        files={'file': ('private.jpg', b'private-bytes', 'image/jpeg')},
+    )
+    assert private_file.status_code == 201
+
+    public_list = client.get(
+        f'/api/v1/files/users/{owner_user_id}?limit=10&offset=0',
+        headers=stranger_headers,
+    )
+    assert public_list.status_code == 200
+    public_payload = public_list.json()
+    assert public_payload['pagination']['total'] == 1
+    assert public_payload['items'][0]['id'] == public_file_id
+    assert public_payload['items'][0]['is_private'] is False
+
+    foreign_update = client.patch(
+        f'/api/v1/files/{public_file_id}',
+        headers=stranger_headers,
+        json={'filename': 'hacked.jpg'},
+    )
+    assert foreign_update.status_code == 404
+
+    foreign_delete = client.delete(f'/api/v1/files/{public_file_id}', headers=stranger_headers)
+    assert foreign_delete.status_code == 404
+
+
 def test_countries_and_users_list_require_auth_and_support_filters(client, settings) -> None:
     tokens = _get_tokens(client, 'lists@example.com', settings.otp.otp_mock_code)
     auth_headers = {'Authorization': f'Bearer {tokens["access_token"]}'}

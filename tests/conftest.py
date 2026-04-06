@@ -12,6 +12,8 @@ from app.models.tables import (
     achievements,
     cities,
     countries,
+    files,
+    files_visits,
     followers,
     metadata,
     otp_requests,
@@ -24,6 +26,22 @@ from settings import AppSettings, AuthSettings, OtpSettings, to_sync_database_ur
 from web.app import create_app
 
 TEST_OTP_MOCK_CODE = '654321'
+
+
+class TestFileStorage:
+    def __init__(self) -> None:
+        self._objects: dict[str, bytes] = {}
+
+    async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:  # noqa: ARG002
+        self._objects[key] = content
+        return f'memory://{key}'
+
+    async def delete_file(self, file_url: str) -> None:
+        key = file_url.removeprefix('memory://')
+        self._objects.pop(key, None)
+
+    async def check_connection(self) -> bool:
+        return True
 
 
 @pytest.fixture()
@@ -55,7 +73,9 @@ def db_pool(settings: AppSettings):
         with sync_engine.connect() as conn:
             # Keep reference countries, reset mutable business tables for deterministic tests.
             for table in (
+                files_visits,
                 users_achievements,
+                files,
                 achievements,
                 visits,
                 followers,
@@ -83,6 +103,6 @@ def mock_resend():
 
 @pytest.fixture()
 def client(settings: AppSettings, db_pool):
-    app = create_app(settings=settings)
+    app = create_app(settings=settings, file_storage=TestFileStorage())
     with TestClient(app=app) as test_client:
         yield test_client
