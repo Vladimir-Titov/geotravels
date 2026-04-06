@@ -17,17 +17,19 @@ class VisitsService:
         self,
         user_id: UUID,
         country_code: str,
+        city_id: UUID | None,
         trip_date: date | None,
     ) -> dict[str, Any]:
         return await self.visits_repository.create(
             user_id=user_id,
             country_code=country_code,
+            city_id=city_id,
             trip_date=trip_date,
         )
 
     async def list_visits(self, user_id: UUID, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
         return await self.visits_repository.paginated_search(
-            order_by=['-marked_at', '-id'],
+            order_by=['-created', '-id'],
             limit=limit,
             offset=offset,
             user_id=user_id,

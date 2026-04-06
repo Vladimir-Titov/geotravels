@@ -25,6 +25,7 @@ async def create_visit(
     visit = await visits_service.create_visit(
         user_id=current_user.id,
         country_code=data.country_code,
+        city_id=data.city_id,
         trip_date=data.trip_date,
     )
     return VisitEventResponse(**visit)

@@ -9,11 +9,13 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    Numeric,
     String,
     Table,
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData(schema='tripmark')
 
@@ -22,6 +24,9 @@ users = Table(
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
     Column('email', String(length=320), nullable=True),
+    Column('first_name', String(length=64), nullable=True),
+    Column('last_name', String(length=64), nullable=True),
+    Column('username', String(length=32), nullable=True),
     Column(
         'telegram_user_id', BigInteger(), ForeignKey('telegram_users.telegram_id', ondelete='SET NULL'), nullable=True
     ),
@@ -35,8 +40,34 @@ countries = Table(
     metadata,
     Column('iso_a2', String(length=2), primary_key=True),
     Column('name', String(length=128), nullable=False),
+    Column('labels', JSONB(), nullable=True),
+    Column('meta', JSONB(), nullable=True),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+)
+
+cities = Table(
+    'cities',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column(
+        'country_code',
+        String(length=2),
+        ForeignKey('countries.iso_a2', ondelete='RESTRICT'),
+        nullable=False,
+    ),
+    Column('name', String(length=200), nullable=False),
+    Column('name_normalized', String(length=200), nullable=False),
+    Column('latitude', Numeric(precision=9, scale=6), nullable=True),
+    Column('longitude', Numeric(precision=9, scale=6), nullable=True),
+    Column('population', BigInteger(), nullable=True),
+    Column('labels', JSONB(), nullable=True),
+    Column('meta', JSONB(), nullable=True),
+    Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+    Index('idx_cities_country_code', 'country_code'),
+    Index('idx_cities_name_normalized', 'name_normalized'),
+    Index('idx_cities_country_name', 'country_code', 'name_normalized'),
 )
 
 visits = Table(
@@ -44,13 +75,14 @@ visits = Table(
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
     Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-    Column('country_code', ForeignKey('countries.iso_a2', ondelete='RESTRICT'), nullable=False),
-    Column('marked_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('country_code', String(length=2), ForeignKey('countries.iso_a2', ondelete='RESTRICT'), nullable=False),
+    Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
     Column('trip_date', Date, nullable=True),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
+    Index('idx_city_id', 'city_id'),
 )
 
 otp_requests = Table(

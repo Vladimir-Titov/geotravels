@@ -8,7 +8,7 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
-from app.models.tables import countries, metadata, otp_requests, telegram_users, users, visits
+from app.models.tables import cities, countries, metadata, otp_requests, telegram_users, users, visits
 from settings import AppSettings, AuthSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 
@@ -43,7 +43,7 @@ def db_pool(settings: AppSettings):
         metadata.create_all(sync_engine)
         with sync_engine.connect() as conn:
             # Keep reference countries, reset mutable business tables for deterministic tests.
-            for table in (visits, otp_requests, users, telegram_users):
+            for table in (visits, cities, otp_requests, users, telegram_users):
                 conn.execute(table.delete())
 
             existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}

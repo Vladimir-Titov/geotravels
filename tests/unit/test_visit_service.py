@@ -24,6 +24,7 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
     created = await service.create_visit(
         user_id=user_id,
         country_code='FR',
+        city_id=None,
         trip_date=date(2025, 1, 2),
     )
     assert created['country_code'] == 'FR'
@@ -58,6 +59,7 @@ async def test_visit_scope_isolated_by_user(db_pool) -> None:
     created = await service.create_visit(
         user_id=owner_id,
         country_code='FR',
+        city_id=None,
         trip_date=None,
     )
 

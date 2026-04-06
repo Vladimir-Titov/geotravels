@@ -30,7 +30,7 @@ def test_alembic_upgrade_head_creates_tables() -> None:
 
         inspector = inspect(engine)
         tables = set(inspector.get_table_names(schema='tripmark'))
-        assert {'users', 'countries', 'visits', 'telegram_users', 'otp_requests'}.issubset(tables)
+        assert {'users', 'countries', 'cities', 'visits', 'telegram_users', 'otp_requests'}.issubset(tables)
     finally:
         with engine.connect() as conn:
             conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))

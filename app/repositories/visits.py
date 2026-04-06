@@ -15,12 +15,19 @@ class VisitsRepository(BaseEntityDBRepository):
         self,
         user_id: UUID,
         country_code: str,
+        city_id: UUID | None,
         trip_date: date | None,
     ) -> dict[str, Any]:
-        return await super().create(id=uuid7(), user_id=user_id, country_code=country_code, trip_date=trip_date)
+        return await super().create(
+            id=uuid7(),
+            user_id=user_id,
+            country_code=country_code,
+            city_id=city_id,
+            trip_date=trip_date,
+        )
 
     async def list_by_user(self, user_id: UUID) -> list[dict[str, Any]]:
-        return await self.search(user_id=user_id, order_by=['-marked_at', '-id'])
+        return await self.search(user_id=user_id, order_by=['-created', '-id'])
 
     async def list_unique_country_codes_by_user(self, user_id: UUID) -> list[str]:
         query = (
@@ -37,4 +44,6 @@ class VisitsRepository(BaseEntityDBRepository):
             row['id'] = UUID(row['id'])
         if isinstance(row.get('user_id'), str):
             row['user_id'] = UUID(row['user_id'])
+        if isinstance(row.get('city_id'), str):
+            row['city_id'] = UUID(row['city_id'])
         return row
