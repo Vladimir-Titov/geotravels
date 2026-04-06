@@ -141,7 +141,7 @@ class AuthService:
     def _encode_access_token(self, user_id: UUID) -> str:
         auth_settings = self.settings.auth
         return encode_token(
-            subject=str(user_id),
+            user_id=str(user_id),
             token_type='access',
             secret=auth_settings.jwt_secret,
             algorithm=auth_settings.jwt_algorithm,
@@ -151,7 +151,7 @@ class AuthService:
     def _encode_refresh_token(self, user_id: UUID) -> str:
         auth_settings = self.settings.auth
         return encode_token(
-            subject=str(user_id),
+            user_id=str(user_id),
             token_type='refresh',
             secret=auth_settings.jwt_secret,
             algorithm=auth_settings.jwt_algorithm,

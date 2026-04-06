@@ -12,7 +12,7 @@ class TokenError(ValueError):
 
 
 def encode_token(
-    subject: str,
+    user_id: str,
     token_type: str,
     secret: str,
     algorithm: str,
@@ -20,7 +20,7 @@ def encode_token(
 ) -> str:
     now = datetime.now(tz=UTC)
     payload: dict[str, Any] = {
-        'sub': subject,
+        'sub': user_id,
         'type': token_type,
         'iat': int(now.timestamp()),
         'exp': int((now + ttl).timestamp()),
