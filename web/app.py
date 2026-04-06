@@ -14,14 +14,23 @@ from litestar.plugins.prometheus import PrometheusConfig, PrometheusController
 from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from app.repositories import (
+    AchievementsRepository,
     CountriesRepository,
     FollowersRepository,
     OtpRequestsRepository,
+    UsersAchievementsRepository,
     UsersRepository,
     VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
-from app.services import AuthService, CountriesService, FollowersService, UsersService, VisitsService
+from app.services import (
+    AchievementsService,
+    AuthService,
+    CountriesService,
+    FollowersService,
+    UsersService,
+    VisitsService,
+)
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.otp_sender import ResendOTPSender
@@ -119,6 +128,14 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         countries_repository = CountriesRepository(request.app.state.db_pool)
         return CountriesService(countries_repository=countries_repository)
 
+    def provide_achievements_service(request: Request) -> AchievementsService:
+        achievements_repository = AchievementsRepository(request.app.state.db_pool)
+        users_achievements_repository = UsersAchievementsRepository(request.app.state.db_pool)
+        return AchievementsService(
+            achievements_repository=achievements_repository,
+            users_achievements_repository=users_achievements_repository,
+        )
+
     def provide_users_service(request: Request) -> UsersService:
         users_repository = UsersRepository(request.app.state.db_pool)
         return UsersService(users_repository=users_repository)
@@ -183,6 +200,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         ),
         dependencies={
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
+            'achievements_service': Provide(provide_achievements_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
