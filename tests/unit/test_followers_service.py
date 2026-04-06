@@ -28,6 +28,7 @@ async def followers_service(db_pool) -> FollowersService:
 async def test_subscribe_creates_relation(followers_service, db_pool) -> None:
     follower_id = await _create_user(db_pool)
     following_id = await _create_user(db_pool)
+    followers_repository = FollowersRepository(db_pool)
 
     relation = await followers_service.subscribe(
         follower_id=follower_id,
@@ -36,12 +37,19 @@ async def test_subscribe_creates_relation(followers_service, db_pool) -> None:
 
     assert relation['follower_id'] == follower_id
     assert relation['following_id'] == following_id
+    relation_in_db = await followers_repository.get_relation(
+        follower_id=follower_id,
+        following_id=following_id,
+    )
+    assert relation_in_db is not None
+    assert relation_in_db['id'] == relation['id']
 
 
 @pytest.mark.asyncio
 async def test_unsubscribe_returns_removed_relation(followers_service, db_pool) -> None:
     follower_id = await _create_user(db_pool)
     following_id = await _create_user(db_pool)
+    followers_repository = FollowersRepository(db_pool)
     created = await followers_service.subscribe(
         follower_id=follower_id,
         following_id=following_id,
@@ -55,6 +63,11 @@ async def test_unsubscribe_returns_removed_relation(followers_service, db_pool) 
     assert removed['id'] == created['id']
     assert removed['follower_id'] == follower_id
     assert removed['following_id'] == following_id
+    relation_in_db = await followers_repository.get_relation(
+        follower_id=follower_id,
+        following_id=following_id,
+    )
+    assert relation_in_db is None
 
 
 @pytest.mark.asyncio
