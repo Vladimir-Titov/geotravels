@@ -29,16 +29,17 @@ async def subscribe(
     return FollowerResponse(**relation)
 
 
-@delete('/{following_id:uuid}', tags=['followers'], security=[{'user_auth': []}])
+@delete('/{following_id:uuid}', tags=['followers'], security=[{'user_auth': []}], status_code=200)
 async def unsubscribe(
     following_id: UUID,
     followers_service: FollowersService,
     current_user: CurrentUser,
-) -> None:
-    await followers_service.unsubscribe(
+) -> FollowerResponse:
+    relation = await followers_service.unsubscribe(
         follower_id=current_user.id,
         following_id=following_id,
     )
+    return FollowerResponse(**relation)
 
 
 @get(

@@ -24,19 +24,22 @@ class FollowersService:
 
         await self._ensure_user_exists(user_id=following_id)
 
-        existing_relation = await self.followers_repository.get_relation(
-            follower_id=follower_id,
-            following_id=following_id,
-        )
-        if existing_relation:
-            raise ConflictError('Already following this user')
+        try:
+            return await self.followers_repository.create(
+                follower_id=follower_id,
+                following_id=following_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Duplicate follow can happen under concurrent requests.
+            existing_relation = await self.followers_repository.get_relation(
+                follower_id=follower_id,
+                following_id=following_id,
+            )
+            if existing_relation:
+                raise ConflictError('Already following this user') from exc
+            raise
 
-        return await self.followers_repository.create(
-            follower_id=follower_id,
-            following_id=following_id,
-        )
-
-    async def unsubscribe(self, follower_id: UUID, following_id: UUID) -> None:
+    async def unsubscribe(self, follower_id: UUID, following_id: UUID) -> dict[str, Any]:
         relation = await self.followers_repository.get_relation(
             follower_id=follower_id,
             following_id=following_id,
@@ -45,6 +48,7 @@ class FollowersService:
             raise NotFoundError('Follow relation not found')
 
         await self.followers_repository.delete_by_id(entity_id=relation['id'])
+        return relation
 
     async def list_followers(self, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
         return await self.followers_repository.paginated_search(

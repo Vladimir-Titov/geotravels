@@ -27,6 +27,27 @@ def _get_user_id_by_email(client, auth_headers: dict[str, str], email: str) -> s
     return payload['items'][0]['id']
 
 
+def _auth_headers(tokens: dict) -> dict[str, str]:
+    return {'Authorization': f'Bearer {tokens["access_token"]}'}
+
+
+def _prepare_followers_context(client, settings) -> dict[str, str]:
+    me = _get_tokens(client, 'followers-me@example.com', settings.otp.otp_mock_code)
+    other = _get_tokens(client, 'followers-other@example.com', settings.otp.otp_mock_code)
+    _get_tokens(client, 'followers-target@example.com', settings.otp.otp_mock_code)
+
+    me_headers = _auth_headers(me)
+    other_headers = _auth_headers(other)
+
+    return {
+        'me_headers': me_headers,
+        'other_headers': other_headers,
+        'me_user_id': _get_user_id_by_email(client, me_headers, 'followers-me@example.com'),
+        'other_user_id': _get_user_id_by_email(client, me_headers, 'followers-other@example.com'),
+        'target_user_id': _get_user_id_by_email(client, me_headers, 'followers-target@example.com'),
+    }
+
+
 def test_auth_and_visit_flow(client, settings) -> None:
     tokens = _get_tokens(client, 'api@example.com', settings.otp.otp_mock_code)
 
@@ -192,75 +213,122 @@ def test_unhandled_runtime_is_wrapped_into_service_error(client, settings, monke
     assert payload['detail'] == 'Internal Server Error'
 
 
-def test_followers_flow_supports_own_and_foreign_listing(client, settings) -> None:
-    me = _get_tokens(client, 'followers-me@example.com', settings.otp.otp_mock_code)
-    other = _get_tokens(client, 'followers-other@example.com', settings.otp.otp_mock_code)
-    _get_tokens(client, 'followers-target@example.com', settings.otp.otp_mock_code)
-
-    me_headers = {'Authorization': f'Bearer {me["access_token"]}'}
-    other_headers = {'Authorization': f'Bearer {other["access_token"]}'}
-
-    target_user_id = _get_user_id_by_email(client, me_headers, 'followers-target@example.com')
-    other_user_id = _get_user_id_by_email(client, me_headers, 'followers-other@example.com')
-
+def test_followers_endpoints_require_auth(client) -> None:
     assert client.get('/api/v1/followers').status_code == 401
+
+    create = client.post(
+        '/api/v1/followers',
+        json={'following_id': '00000000-0000-0000-0000-000000000000'},
+    )
+    assert create.status_code == 401
+
+    delete = client.delete('/api/v1/followers/00000000-0000-0000-0000-000000000000')
+    assert delete.status_code == 401
+
+
+def test_followers_subscribe_creates_relation_and_lists_own(client, settings) -> None:
+    ctx = _prepare_followers_context(client, settings)
 
     create_response = client.post(
         '/api/v1/followers',
-        headers=me_headers,
-        json={'following_id': target_user_id},
+        headers=ctx['me_headers'],
+        json={'following_id': ctx['target_user_id']},
     )
     assert create_response.status_code == 201
+    created = create_response.json()
+    assert created['follower_id'] == ctx['me_user_id']
+    assert created['following_id'] == ctx['target_user_id']
 
-    duplicate_response = client.post(
-        '/api/v1/followers',
-        headers=me_headers,
-        json={'following_id': target_user_id},
-    )
-    assert duplicate_response.status_code == 409
+    me_list = client.get('/api/v1/followers?limit=10&offset=0', headers=ctx['me_headers'])
+    assert me_list.status_code == 200
+    me_payload = me_list.json()
+    assert me_payload['pagination']['total'] == 1
+    assert me_payload['items'][0]['following_id'] == ctx['target_user_id']
+
+
+def test_followers_subscribe_validations(client, settings) -> None:
+    ctx = _prepare_followers_context(client, settings)
 
     self_follow_response = client.post(
         '/api/v1/followers',
-        headers=me_headers,
-        json={'following_id': _get_user_id_by_email(client, me_headers, 'followers-me@example.com')},
+        headers=ctx['me_headers'],
+        json={'following_id': ctx['me_user_id']},
     )
     assert self_follow_response.status_code == 400
 
     not_found_response = client.post(
         '/api/v1/followers',
-        headers=me_headers,
+        headers=ctx['me_headers'],
         json={'following_id': '00000000-0000-0000-0000-000000000000'},
     )
     assert not_found_response.status_code == 404
 
-    me_list = client.get('/api/v1/followers?limit=10&offset=0', headers=me_headers)
-    assert me_list.status_code == 200
-    me_payload = me_list.json()
-    assert me_payload['pagination']['total'] == 1
-    assert me_payload['items'][0]['following_id'] == target_user_id
+    created = client.post(
+        '/api/v1/followers',
+        headers=ctx['me_headers'],
+        json={'following_id': ctx['target_user_id']},
+    )
+    assert created.status_code == 201
 
-    other_empty = client.get('/api/v1/followers?limit=10&offset=0', headers=other_headers)
+    duplicate = client.post(
+        '/api/v1/followers',
+        headers=ctx['me_headers'],
+        json={'following_id': ctx['target_user_id']},
+    )
+    assert duplicate.status_code == 409
+
+
+def test_followers_list_supports_foreign_filter(client, settings) -> None:
+    ctx = _prepare_followers_context(client, settings)
+
+    other_empty = client.get('/api/v1/followers?limit=10&offset=0', headers=ctx['other_headers'])
     assert other_empty.status_code == 200
     assert other_empty.json()['pagination']['total'] == 0
 
     other_create = client.post(
         '/api/v1/followers',
-        headers=other_headers,
-        json={'following_id': target_user_id},
+        headers=ctx['other_headers'],
+        json={'following_id': ctx['target_user_id']},
     )
     assert other_create.status_code == 201
 
     foreign_filtered = client.get(
-        f'/api/v1/followers?limit=10&offset=0&follower_id={other_user_id}',
-        headers=me_headers,
+        f'/api/v1/followers?limit=10&offset=0&follower_id={ctx["other_user_id"]}',
+        headers=ctx['me_headers'],
     )
     assert foreign_filtered.status_code == 200
     foreign_payload = foreign_filtered.json()
     assert foreign_payload['pagination']['total'] == 1
-    assert foreign_payload['items'][0]['follower_id'] == other_user_id
+    assert foreign_payload['items'][0]['follower_id'] == ctx['other_user_id']
 
-    delete_response = client.delete(f'/api/v1/followers/{target_user_id}', headers=me_headers)
-    assert delete_response.status_code in {200, 204}
 
-    delete_missing = client.delete(f'/api/v1/followers/{target_user_id}', headers=me_headers)
+def test_followers_unsubscribe_returns_removed_relation(client, settings) -> None:
+    ctx = _prepare_followers_context(client, settings)
+
+    create_response = client.post(
+        '/api/v1/followers',
+        headers=ctx['me_headers'],
+        json={'following_id': ctx['target_user_id']},
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+
+    delete_response = client.delete(
+        f'/api/v1/followers/{ctx["target_user_id"]}',
+        headers=ctx['me_headers'],
+    )
+    assert delete_response.status_code == 200
+    deleted = delete_response.json()
+    assert deleted['id'] == created['id']
+    assert deleted['follower_id'] == ctx['me_user_id']
+    assert deleted['following_id'] == ctx['target_user_id']
+
+    after_delete = client.get('/api/v1/followers?limit=10&offset=0', headers=ctx['me_headers'])
+    assert after_delete.status_code == 200
+    assert after_delete.json()['pagination']['total'] == 0
+
+    delete_missing = client.delete(
+        f'/api/v1/followers/{ctx["target_user_id"]}',
+        headers=ctx['me_headers'],
+    )
     assert delete_missing.status_code == 404
