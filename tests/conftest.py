@@ -9,6 +9,7 @@ from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
 from app.models.tables import (
+    achievements,
     cities,
     countries,
     files,
@@ -18,6 +19,7 @@ from app.models.tables import (
     otp_requests,
     telegram_users,
     users,
+    users_achievements,
     visits,
 )
 from app.services.file_storage import InMemoryFileStorage
@@ -55,7 +57,18 @@ def db_pool(settings: AppSettings):
         metadata.create_all(sync_engine)
         with sync_engine.connect() as conn:
             # Keep reference countries, reset mutable business tables for deterministic tests.
-            for table in (files_visits, files, visits, followers, cities, otp_requests, users, telegram_users):
+            for table in (
+                files_visits,
+                users_achievements,
+                files,
+                achievements,
+                visits,
+                followers,
+                cities,
+                otp_requests,
+                users,
+                telegram_users,
+            ):
                 conn.execute(table.delete())
 
             existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}

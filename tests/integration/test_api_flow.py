@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import base64
+from uuid import UUID, uuid4
 
+from sqlalchemy import create_engine
+
+from app.models.tables import achievements, users_achievements
 from app.services.visits import VisitsService
+from settings import to_sync_database_url
 
 
 def _get_tokens(client, email: str, otp_code: str) -> dict:
@@ -52,6 +57,44 @@ def _prepare_followers_context(client, settings) -> dict[str, str]:
         'other_user_id': _get_user_id_by_email(client, me_headers, 'followers-other@example.com'),
         'target_user_id': _get_user_id_by_email(client, me_headers, 'followers-target@example.com'),
     }
+
+
+def _seed_achievements_for_users(settings, user_id: str, other_user_id: str) -> dict[str, str]:
+    earned_id = uuid4()
+    foreign_earned_id = uuid4()
+
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
+    try:
+        with sync_engine.connect() as conn:
+            conn.execute(
+                achievements.insert(),
+                [
+                    {
+                        'id': earned_id,
+                        'title': 'First Trip',
+                        'description': 'Complete your first trip',
+                        'logo_url': 'https://cdn.example.com/first-trip.png',
+                    },
+                    {
+                        'id': foreign_earned_id,
+                        'title': 'Explorer',
+                        'description': 'Visit 10 countries',
+                        'logo_url': None,
+                    },
+                ],
+            )
+            conn.execute(
+                users_achievements.insert(),
+                [
+                    {'id': uuid4(), 'user_id': UUID(user_id), 'achievements_id': earned_id},
+                    {'id': uuid4(), 'user_id': UUID(other_user_id), 'achievements_id': foreign_earned_id},
+                ],
+            )
+            conn.commit()
+    finally:
+        sync_engine.dispose()
+
+    return {'earned_id': str(earned_id), 'foreign_earned_id': str(foreign_earned_id)}
 
 
 def test_auth_and_visit_flow(client, settings) -> None:
@@ -336,6 +379,60 @@ def test_followers_endpoints_require_auth(client) -> None:
 
     delete = client.delete('/api/v1/followers/00000000-0000-0000-0000-000000000000')
     assert delete.status_code == 401
+
+
+def test_achievements_endpoints_require_auth(client) -> None:
+    assert client.get('/api/v1/achievements').status_code == 401
+    assert client.get('/api/v1/achievements/my').status_code == 401
+
+
+def test_achievements_list_and_my_achievements_are_user_scoped(client, settings) -> None:
+    me = _get_tokens(client, 'achievements-me@example.com', settings.otp.otp_mock_code)
+    other = _get_tokens(client, 'achievements-other@example.com', settings.otp.otp_mock_code)
+
+    me_headers = _auth_headers(me)
+    other_headers = _auth_headers(other)
+
+    me_user_id = _get_user_id_by_email(client, me_headers, 'achievements-me@example.com')
+    other_user_id = _get_user_id_by_email(client, me_headers, 'achievements-other@example.com')
+
+    seeded = _seed_achievements_for_users(settings, user_id=me_user_id, other_user_id=other_user_id)
+
+    list_response = client.get('/api/v1/achievements?limit=10&offset=0&order_by=title', headers=me_headers)
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload['pagination']['total'] == 2
+    assert [item['title'] for item in list_payload['items']] == ['Explorer', 'First Trip']
+    assert {item['id'] for item in list_payload['items']} == {
+        seeded['earned_id'],
+        seeded['foreign_earned_id'],
+    }
+
+    filtered_list = client.get('/api/v1/achievements?limit=10&offset=0&title=Explorer', headers=me_headers)
+    assert filtered_list.status_code == 200
+    filtered_payload = filtered_list.json()
+    assert filtered_payload['pagination']['total'] == 1
+    assert filtered_payload['items'][0]['id'] == seeded['foreign_earned_id']
+
+    my_response = client.get('/api/v1/achievements/my?limit=10&offset=0&title=First%20Trip', headers=me_headers)
+    assert my_response.status_code == 200
+    my_payload = my_response.json()
+    assert my_payload['pagination']['total'] == 1
+    assert my_payload['items'][0]['id'] == seeded['earned_id']
+    assert my_payload['items'][0]['complete_at']
+
+    my_foreign_filtered = client.get(
+        f'/api/v1/achievements/my?limit=10&offset=0&id={seeded["foreign_earned_id"]}',
+        headers=me_headers,
+    )
+    assert my_foreign_filtered.status_code == 200
+    assert my_foreign_filtered.json()['pagination']['total'] == 0
+
+    other_response = client.get('/api/v1/achievements/my?limit=10&offset=0', headers=other_headers)
+    assert other_response.status_code == 200
+    other_payload = other_response.json()
+    assert other_payload['pagination']['total'] == 1
+    assert other_payload['items'][0]['id'] == seeded['foreign_earned_id']
 
 
 def test_followers_subscribe_creates_relation_and_lists_own(client, settings) -> None:

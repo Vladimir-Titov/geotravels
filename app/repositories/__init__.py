@@ -1,3 +1,4 @@
+from app.repositories.achievements import AchievementsRepository
 from app.repositories.base import (
     BaseDBRepository,
     BaseEntityDBRepository,
@@ -10,6 +11,7 @@ from app.repositories.files import FilesRepository
 from app.repositories.followers import FollowersRepository
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.users import UsersRepository
+from app.repositories.users_achievements import UsersAchievementsRepository
 from app.repositories.visits import VisitsRepository
 
 __all__ = [
@@ -18,7 +20,9 @@ __all__ = [
     'RowNotFoundError',
     'Pagination',
     'PaginatedResponse',
+    'AchievementsRepository',
     'UsersRepository',
+    'UsersAchievementsRepository',
     'CountriesRepository',
     'FilesRepository',
     'FollowersRepository',
