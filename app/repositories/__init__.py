@@ -6,6 +6,7 @@ from app.repositories.base import (
     RowNotFoundError,
 )
 from app.repositories.countries import CountriesRepository
+from app.repositories.followers import FollowersRepository
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
@@ -18,6 +19,7 @@ __all__ = [
     'PaginatedResponse',
     'UsersRepository',
     'CountriesRepository',
+    'FollowersRepository',
     'OtpRequestsRepository',
     'VisitsRepository',
 ]
