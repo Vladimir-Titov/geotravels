@@ -1,6 +1,7 @@
 from app.models.tables import (
     cities,
     countries,
+    followers,
     metadata,
     otp_requests,
     telegram_users,
@@ -14,6 +15,7 @@ __all__ = [
     'countries',
     'cities',
     'visits',
+    'followers',
     'telegram_users',
     'otp_requests',
 ]

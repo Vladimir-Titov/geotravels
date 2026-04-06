@@ -13,9 +13,15 @@ from litestar.openapi.spec import Components, SecurityScheme
 from litestar.plugins.prometheus import PrometheusConfig, PrometheusController
 from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
-from app.repositories import CountriesRepository, OtpRequestsRepository, UsersRepository, VisitsRepository
+from app.repositories import (
+    CountriesRepository,
+    FollowersRepository,
+    OtpRequestsRepository,
+    UsersRepository,
+    VisitsRepository,
+)
 from app.repositories.telegram_users import TelegramUsersRepository
-from app.services import AuthService, CountriesService, UsersService, VisitsService
+from app.services import AuthService, CountriesService, FollowersService, UsersService, VisitsService
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.otp_sender import ResendOTPSender
@@ -121,6 +127,14 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         visits_repository = VisitsRepository(request.app.state.db_pool)
         return VisitsService(visits_repository=visits_repository)
 
+    def provide_followers_service(request: Request) -> FollowersService:
+        users_repository = UsersRepository(request.app.state.db_pool)
+        followers_repository = FollowersRepository(request.app.state.db_pool)
+        return FollowersService(
+            followers_repository=followers_repository,
+            users_repository=users_repository,
+        )
+
     def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:
         authorization = request.headers.get('Authorization', '')
         if not authorization:
@@ -171,6 +185,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
+            'followers_service': Provide(provide_followers_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
         },

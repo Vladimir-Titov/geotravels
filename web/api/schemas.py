@@ -191,6 +191,42 @@ class VisitsListRequest(BaseListRequest):
     updated_notin: list[datetime] | None = field(default=None)
 
 
+@dataclass(eq=False)
+class FollowersListRequest(BaseListRequest):
+    id: UUID | None = field(default=None)
+    id_ne: UUID | None = field(default=None)
+    id_in: list[UUID] | None = field(default=None)
+    id_notin: list[UUID] | None = field(default=None)
+
+    follower_id: UUID | None = field(default=None)
+    follower_id_ne: UUID | None = field(default=None)
+    follower_id_in: list[UUID] | None = field(default=None)
+    follower_id_notin: list[UUID] | None = field(default=None)
+
+    following_id: UUID | None = field(default=None)
+    following_id_ne: UUID | None = field(default=None)
+    following_id_in: list[UUID] | None = field(default=None)
+    following_id_notin: list[UUID] | None = field(default=None)
+
+    created: datetime | None = field(default=None)
+    created_ne: datetime | None = field(default=None)
+    created_lt: datetime | None = field(default=None)
+    created_le: datetime | None = field(default=None)
+    created_gt: datetime | None = field(default=None)
+    created_ge: datetime | None = field(default=None)
+    created_in: list[datetime] | None = field(default=None)
+    created_notin: list[datetime] | None = field(default=None)
+
+    updated: datetime | None = field(default=None)
+    updated_ne: datetime | None = field(default=None)
+    updated_lt: datetime | None = field(default=None)
+    updated_le: datetime | None = field(default=None)
+    updated_gt: datetime | None = field(default=None)
+    updated_ge: datetime | None = field(default=None)
+    updated_in: list[datetime] | None = field(default=None)
+    updated_notin: list[datetime] | None = field(default=None)
+
+
 class PaginationResponse(BaseModel):
     limit: int | None
     offset: int
@@ -257,6 +293,25 @@ class VisitEventResponse(BaseModel):
 
 class VisitsListResponse(BaseModel):
     items: list[VisitEventResponse]
+    pagination: PaginationResponse
+
+
+class FollowRequest(BaseModel):
+    following_id: UUID
+
+
+class FollowerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    follower_id: UUID
+    following_id: UUID
+    created: datetime
+    updated: datetime
+
+
+class FollowersListResponse(BaseModel):
+    items: list[FollowerResponse]
     pagination: PaginationResponse
 
 
