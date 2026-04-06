@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+from uuid import UUID, uuid4
+
+import pytest
+
+from app.repositories.achievements import AchievementsRepository
+from app.repositories.users import UsersRepository
+from app.repositories.users_achievements import UsersAchievementsRepository
+from app.services.achievements import AchievementsService
+
+
+async def _create_user(db_pool) -> UUID:
+    users_repo = UsersRepository(db_pool)
+    return (await users_repo.create(email=f'{uuid4()}@example.com'))['id']
+
+
+@pytest.mark.asyncio
+async def test_list_achievements_and_my_earned(db_pool) -> None:
+    service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+    )
+    achievements_repository = AchievementsRepository(db_pool)
+    users_achievements_repository = UsersAchievementsRepository(db_pool)
+
+    me_id = await _create_user(db_pool)
+    other_id = await _create_user(db_pool)
+
+    earned = await achievements_repository.create(
+        title='First Trip',
+        description='Complete your first trip',
+        logo_url='https://cdn.example.com/first-trip.png',
+    )
+    not_earned = await achievements_repository.create(
+        title='Explorer',
+        description='Visit 10 countries',
+    )
+
+    await users_achievements_repository.create(user_id=me_id, achievements_id=earned['id'])
+    await users_achievements_repository.create(user_id=other_id, achievements_id=not_earned['id'])
+
+    all_achievements = await service.list_achievements(limit=100, offset=0)
+    all_ids = {item['id'] for item in all_achievements.items}
+    assert {earned['id'], not_earned['id']}.issubset(all_ids)
+
+    my_achievements = await service.list_user_achievements(user_id=me_id, limit=100, offset=0)
+    assert my_achievements.pagination.total == 1
+    assert my_achievements.items[0]['id'] == earned['id']
+    assert my_achievements.items[0]['user_id'] == me_id
+    assert my_achievements.items[0]['complete_at'] is not None

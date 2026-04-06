@@ -267,6 +267,31 @@ class UsersListResponse(BaseModel):
     pagination: PaginationResponse
 
 
+class AchievementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str
+    logo_url: str | None = None
+    created: datetime
+    updated: datetime
+
+
+class AchievementsListResponse(BaseModel):
+    items: list[AchievementResponse]
+    pagination: PaginationResponse
+
+
+class EarnedAchievementResponse(AchievementResponse):
+    complete_at: datetime
+
+
+class EarnedAchievementsListResponse(BaseModel):
+    items: list[EarnedAchievementResponse]
+    pagination: PaginationResponse
+
+
 class MarkVisitRequest(BaseModel):
     country_code: str = Field(min_length=2, max_length=2)
     city_id: UUID | None = None

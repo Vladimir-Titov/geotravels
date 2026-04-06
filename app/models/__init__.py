@@ -1,4 +1,5 @@
 from app.models.tables import (
+    achievements,
     cities,
     countries,
     followers,
@@ -6,6 +7,7 @@ from app.models.tables import (
     otp_requests,
     telegram_users,
     users,
+    users_achievements,
     visits,
 )
 
@@ -16,6 +18,8 @@ __all__ = [
     'cities',
     'visits',
     'followers',
+    'achievements',
+    'users_achievements',
     'telegram_users',
     'otp_requests',
 ]
