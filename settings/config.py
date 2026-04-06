@@ -12,6 +12,7 @@ from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
 from settings.db import DBSettings
 from settings.logging import LogSettings
 from settings.otp import OtpSettings
+from settings.storage import StorageSettings
 
 
 class AppSettings(BaseSettings):
@@ -24,6 +25,7 @@ class AppSettings(BaseSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     otp: OtpSettings = Field(default_factory=OtpSettings)
     db: DBSettings = Field(default_factory=DBSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
     log: LogSettings = Field(default_factory=LogSettings)
 
     @property

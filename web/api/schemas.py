@@ -227,6 +227,11 @@ class FollowersListRequest(BaseListRequest):
     updated_notin: list[datetime] | None = field(default=None)
 
 
+@dataclass(eq=False)
+class FilesListRequest(BaseListRequest):
+    visit_id: UUID | None = field(default=None)
+
+
 class PaginationResponse(BaseModel):
     limit: int | None
     offset: int
@@ -300,6 +305,18 @@ class FollowRequest(BaseModel):
     following_id: UUID
 
 
+class CreateVisitFileRequest(BaseModel):
+    visit_id: UUID
+    content_base64: str = Field(min_length=1)
+    filename: str | None = Field(default=None, max_length=64)
+    file_type: str | None = Field(default=None, max_length=64)
+    is_private: bool = False
+
+
+class UpdateFileRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=64)
+
+
 class FollowerResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -312,6 +329,23 @@ class FollowerResponse(BaseModel):
 
 class FollowersListResponse(BaseModel):
     items: list[FollowerResponse]
+    pagination: PaginationResponse
+
+
+class VisitFileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    file_url: str
+    filename: str | None = None
+    file_type: str | None = None
+    visit_id: UUID | None = None
+    user_id: UUID | None = None
+    is_private: bool
+
+
+class FilesListResponse(BaseModel):
+    items: list[VisitFileResponse]
     pagination: PaginationResponse
 
 

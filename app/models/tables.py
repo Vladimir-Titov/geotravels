@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -96,6 +97,28 @@ followers = Table(
     Index('idx_followers_follower_id', 'follower_id'),
     Index('idx_followers_following_id', 'following_id'),
     Index('idx_followers_follower_following_unique', 'follower_id', 'following_id', unique=True),
+)
+
+files = Table(
+    'files',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('file_url', String(length=200), nullable=False),
+    Column('filename', String(length=64), nullable=True),
+    Column('file_type', String(length=64), nullable=True),
+)
+
+files_visits = Table(
+    'files_visits',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('file_id', Uuid(as_uuid=True), ForeignKey('files.id', ondelete='SET NULL'), nullable=True),
+    Column('visit_id', Uuid(as_uuid=True), ForeignKey('visits.id', ondelete='SET NULL'), nullable=True),
+    Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
+    Column('is_private', Boolean(), nullable=False, server_default='false'),
+    Index('idx_files_visits_file_id', 'file_id'),
+    Index('idx_files_visits_visit_id', 'visit_id'),
+    Index('idx_files_visits_user_id', 'user_id'),
 )
 
 otp_requests = Table(

@@ -36,6 +36,8 @@ def test_alembic_upgrade_head_creates_tables() -> None:
             'cities',
             'visits',
             'followers',
+            'files',
+            'files_visits',
             'telegram_users',
             'otp_requests',
         }.issubset(tables)

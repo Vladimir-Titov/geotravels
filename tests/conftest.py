@@ -8,7 +8,19 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
-from app.models.tables import cities, countries, followers, metadata, otp_requests, telegram_users, users, visits
+from app.models.tables import (
+    cities,
+    countries,
+    files,
+    files_visits,
+    followers,
+    metadata,
+    otp_requests,
+    telegram_users,
+    users,
+    visits,
+)
+from app.services.file_storage import InMemoryFileStorage
 from settings import AppSettings, AuthSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 
@@ -43,7 +55,7 @@ def db_pool(settings: AppSettings):
         metadata.create_all(sync_engine)
         with sync_engine.connect() as conn:
             # Keep reference countries, reset mutable business tables for deterministic tests.
-            for table in (visits, followers, cities, otp_requests, users, telegram_users):
+            for table in (files_visits, files, visits, followers, cities, otp_requests, users, telegram_users):
                 conn.execute(table.delete())
 
             existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}
@@ -63,6 +75,6 @@ def mock_resend():
 
 @pytest.fixture()
 def client(settings: AppSettings, db_pool):
-    app = create_app(settings=settings)
+    app = create_app(settings=settings, file_storage=InMemoryFileStorage())
     with TestClient(app=app) as test_client:
         yield test_client

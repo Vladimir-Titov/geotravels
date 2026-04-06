@@ -15,15 +15,17 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from app.repositories import (
     CountriesRepository,
+    FilesRepository,
     FollowersRepository,
     OtpRequestsRepository,
     UsersRepository,
     VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
-from app.services import AuthService, CountriesService, FollowersService, UsersService, VisitsService
+from app.services import AuthService, CountriesService, FilesService, FollowersService, UsersService, VisitsService
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
+from app.services.file_storage import FileStorage, S3FileStorage
 from app.services.otp_sender import ResendOTPSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
@@ -92,11 +94,16 @@ def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
     )
 
 
-def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = None) -> Litestar:
+def create_app(
+    settings: AppSettings | None = None,
+    db_pool: DBPool | None = None,
+    file_storage: FileStorage | None = None,
+) -> Litestar:
     app_settings = settings or get_settings()
 
     async def startup(app: Litestar) -> None:
         app.state.db_pool = db_pool or await create_db_pool_from_settings(app_settings)
+        app.state.file_storage = file_storage or S3FileStorage(settings=app_settings.storage)
 
     async def shutdown(app: Litestar) -> None:
         if db_pool is None and hasattr(app.state, 'db_pool'):
@@ -133,6 +140,15 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
         return FollowersService(
             followers_repository=followers_repository,
             users_repository=users_repository,
+        )
+
+    def provide_files_service(request: Request) -> FilesService:
+        files_repository = FilesRepository(request.app.state.db_pool)
+        visits_repository = VisitsRepository(request.app.state.db_pool)
+        return FilesService(
+            files_repository=files_repository,
+            visits_repository=visits_repository,
+            file_storage=request.app.state.file_storage,
         )
 
     def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:
@@ -186,6 +202,7 @@ def create_app(settings: AppSettings | None = None, db_pool: DBPool | None = Non
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
+            'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
         },
