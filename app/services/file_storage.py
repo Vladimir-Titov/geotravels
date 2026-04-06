@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 import aioboto3
@@ -13,15 +13,21 @@ from settings import StorageSettings
 logger = logging.getLogger(__name__)
 
 
-class FileStorage(Protocol):
-    async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str: ...
+class FileStorage(ABC):
+    @abstractmethod
+    async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:
+        raise NotImplementedError
 
-    async def delete_file(self, file_url: str) -> None: ...
+    @abstractmethod
+    async def delete_file(self, file_url: str) -> None:
+        raise NotImplementedError
 
-    async def check_connection(self) -> bool: ...
+    @abstractmethod
+    async def check_connection(self) -> bool:
+        raise NotImplementedError
 
 
-class S3FileStorage:
+class S3FileStorage(FileStorage):
     def __init__(self, settings: StorageSettings):
         self._settings = settings
         self._session = aioboto3.Session()
