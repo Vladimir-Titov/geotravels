@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from litestar import Router, get
 
-from app.services.client_access import CurrentClient
+from app.services.client_access import ClientAuthContext
 from app.services.client_geo_search import ClientGeoSearchService
 from web.api.schemas import (
     CitiesListRequest,
@@ -24,7 +24,7 @@ from web.utils import from_query
 )
 async def list_client_countries(
     client_geo_search_service: ClientGeoSearchService,
-    current_client: CurrentClient,  # noqa: ARG001
+    client_auth_context: ClientAuthContext,  # noqa: ARG001
     filters: CountriesListRequest,
 ) -> CountriesListResponse:
     data = await client_geo_search_service.search_countries(**filters.to_repo_filters())
@@ -46,7 +46,7 @@ async def list_client_countries(
 )
 async def list_client_cities(
     client_geo_search_service: ClientGeoSearchService,
-    current_client: CurrentClient,  # noqa: ARG001
+    client_auth_context: ClientAuthContext,  # noqa: ARG001
     filters: CitiesListRequest,
 ) -> CitiesListResponse:
     data = await client_geo_search_service.search_cities(**filters.to_repo_filters())

@@ -10,7 +10,7 @@ from app.services.exceptions import CountdownError
 
 
 @dataclass(slots=True)
-class CurrentClient:
+class ClientAuthContext:
     token: str
 
 

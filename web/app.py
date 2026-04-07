@@ -36,7 +36,7 @@ from app.services import (
     UsersService,
     VisitsService,
 )
-from app.services.client_access import CurrentClient, InMemoryRateLimiter
+from app.services.client_access import ClientAuthContext, InMemoryRateLimiter
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
@@ -206,7 +206,7 @@ def create_app(
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
-    async def provide_current_client(request: Request) -> CurrentClient:
+    async def provide_client_auth_context(request: Request) -> ClientAuthContext:
         auth_header = app_settings.client_geo.client_auth_header
         provided_token = request.headers.get(auth_header, '')
         expected_token = app_settings.client_geo.client_auth_token
@@ -217,7 +217,7 @@ def create_app(
 
         limiter_key = f'{provided_token}:{request.method}:{request.url.path}'
         await request.app.state.client_rate_limiter.hit(limiter_key)
-        return CurrentClient(token=provided_token)
+        return ClientAuthContext(token=provided_token)
 
     def after_exception(exc: Exception, _scope: object) -> None:
         if not isinstance(exc, (HTTPException, ServiceError)):
@@ -265,7 +265,7 @@ def create_app(
             'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
-            'current_client': Provide(provide_current_client),
+            'client_auth_context': Provide(provide_client_auth_context),
         },
         exception_handlers={
             ServiceError: _service_error_handler,
