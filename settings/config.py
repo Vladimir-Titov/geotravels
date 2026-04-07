@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings
 
 from settings.auth import AuthSettings
 from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
+from settings.client_geo import ClientGeoSettings
 from settings.db import DBSettings
 from settings.logging import LogSettings
 from settings.otp import OtpSettings
@@ -24,6 +25,7 @@ class AppSettings(BaseSettings):
     environment: str = 'local'
     auth: AuthSettings = Field(default_factory=AuthSettings)
     otp: OtpSettings = Field(default_factory=OtpSettings)
+    client_geo: ClientGeoSettings = Field(default_factory=ClientGeoSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     log: LogSettings = Field(default_factory=LogSettings)

@@ -1,4 +1,5 @@
 from settings.auth import AuthSettings
+from settings.client_geo import ClientGeoSettings
 from settings.config import (
     AppSettings,
     get_settings,
@@ -10,6 +11,7 @@ from settings.storage import StorageSettings
 
 __all__ = [
     'AuthSettings',
+    'ClientGeoSettings',
     'AppSettings',
     'DBSettings',
     'LogSettings',

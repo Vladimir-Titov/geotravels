@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import logging
 from typing import Any
 
@@ -15,6 +16,7 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from app.repositories import (
     AchievementsRepository,
+    CitiesRepository,
     CountriesRepository,
     FilesRepository,
     FollowersRepository,
@@ -27,15 +29,18 @@ from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import (
     AchievementsService,
     AuthService,
+    ClientGeoSearchService,
     CountriesService,
     FilesService,
     FollowersService,
     UsersService,
     VisitsService,
 )
+from app.services.client_access import CurrentClient, InMemoryRateLimiter
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
+from app.services.geonames import GeoNamesClient
 from app.services.otp_sender import ResendOTPSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
@@ -114,6 +119,15 @@ def create_app(
     async def startup(app: Litestar) -> None:
         app.state.db_pool = db_pool or await create_db_pool_from_settings(app_settings)
         app.state.file_storage = file_storage or S3FileStorage(settings=app_settings.storage)
+        app.state.geonames_client = GeoNamesClient(
+            username=app_settings.client_geo.geonames_username,
+            base_url=app_settings.client_geo.geonames_base_url,
+            timeout_seconds=app_settings.client_geo.geonames_timeout_seconds,
+        )
+        app.state.client_rate_limiter = InMemoryRateLimiter(
+            requests_per_window=app_settings.client_geo.client_rate_limit_requests,
+            window_seconds=app_settings.client_geo.client_rate_limit_window_seconds,
+        )
 
     async def shutdown(app: Litestar) -> None:
         if db_pool is None and hasattr(app.state, 'db_pool'):
@@ -135,6 +149,14 @@ def create_app(
     def provide_countries_service(request: Request) -> CountriesService:
         countries_repository = CountriesRepository(request.app.state.db_pool)
         return CountriesService(countries_repository=countries_repository)
+
+    def provide_client_geo_search_service(request: Request) -> ClientGeoSearchService:
+        db_pool = request.app.state.db_pool
+        return ClientGeoSearchService(
+            countries_repository=CountriesRepository(db_pool),
+            cities_repository=CitiesRepository(db_pool),
+            geonames_client=request.app.state.geonames_client,
+        )
 
     def provide_achievements_service(request: Request) -> AchievementsService:
         achievements_repository = AchievementsRepository(request.app.state.db_pool)
@@ -184,6 +206,19 @@ def create_app(
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
+    async def provide_current_client(request: Request) -> CurrentClient:
+        auth_header = app_settings.client_geo.client_auth_header
+        provided_token = request.headers.get(auth_header, '')
+        expected_token = app_settings.client_geo.client_auth_token
+        if not provided_token:
+            raise HTTPException(status_code=401, detail=f'Missing {auth_header} header')
+        if not hmac.compare_digest(provided_token, expected_token):
+            raise HTTPException(status_code=401, detail='Invalid client token')
+
+        limiter_key = f'{provided_token}:{request.method}:{request.url.path}'
+        await request.app.state.client_rate_limiter.hit(limiter_key)
+        return CurrentClient(token=provided_token)
+
     def after_exception(exc: Exception, _scope: object) -> None:
         if not isinstance(exc, (HTTPException, ServiceError)):
             logger.exception('Unhandled exception', exc_info=exc)
@@ -207,6 +242,11 @@ def create_app(
             components=Components(
                 security_schemes={
                     'user_auth': SecurityScheme(type='http', scheme='bearer', bearer_format='JWT'),
+                    'client_auth': SecurityScheme(
+                        type='apiKey',
+                        name=app_settings.client_geo.client_auth_header,
+                        security_scheme_in='header',
+                    ),
                 }
             ),
         ),
@@ -219,11 +259,13 @@ def create_app(
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'achievements_service': Provide(provide_achievements_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
+            'client_geo_search_service': Provide(provide_client_geo_search_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
             'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
+            'current_client': Provide(provide_current_client),
         },
         exception_handlers={
             ServiceError: _service_error_handler,

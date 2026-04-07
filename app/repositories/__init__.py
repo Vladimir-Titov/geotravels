@@ -6,6 +6,7 @@ from app.repositories.base import (
     Pagination,
     RowNotFoundError,
 )
+from app.repositories.cities import CitiesRepository
 from app.repositories.countries import CountriesRepository
 from app.repositories.files import FilesRepository
 from app.repositories.followers import FollowersRepository
@@ -24,6 +25,7 @@ __all__ = [
     'UsersRepository',
     'UsersAchievementsRepository',
     'CountriesRepository',
+    'CitiesRepository',
     'FilesRepository',
     'FollowersRepository',
     'OtpRequestsRepository',
