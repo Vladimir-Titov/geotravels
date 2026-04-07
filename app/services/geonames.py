@@ -24,11 +24,17 @@ class GeoNamesClient:
         self.base_url = base_url.rstrip('/')
         self.timeout_seconds = timeout_seconds
 
-    async def search_countries(self, *, filters: dict[str, Any], limit: int, offset: int) -> list[dict[str, Any]]:
+    async def search_countries(
+        self,
+        *,
+        query: str | None,
+        country_codes: list[str],
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
         if not self.username:
             return []
 
-        country_codes = self._extract_country_codes(filters, keys=('iso_a2', 'iso_a2_in'))
         if country_codes:
             rows: list[dict[str, Any]] = []
             for code in country_codes:
@@ -39,7 +45,6 @@ class GeoNamesClient:
                 rows.extend(payload.get('geonames', []))
             return self._normalize_countries(rows)
 
-        query = self._extract_query(filters, keys=('name', 'name_ilike', 'name_like'))
         if not query:
             return []
 
@@ -55,22 +60,16 @@ class GeoNamesClient:
         )
         return self._normalize_countries(payload.get('geonames', []))
 
-    async def search_cities(self, *, filters: dict[str, Any], limit: int, offset: int) -> list[dict[str, Any]]:
+    async def search_cities(
+        self,
+        *,
+        query: str | None,
+        country_code: str | None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
         if not self.username:
             return []
-
-        query = self._extract_query(
-            filters,
-            keys=(
-                'name',
-                'name_ilike',
-                'name_like',
-                'name_normalized',
-                'name_normalized_ilike',
-                'name_normalized_like',
-            ),
-        )
-        country_code = self._extract_country_code(filters)
 
         if not query and not country_code:
             return []
@@ -109,45 +108,6 @@ class GeoNamesClient:
         except Exception as exc:  # noqa: BLE001
             logger.warning('GeoNames request failed: %s', exc)
             return {}
-
-    def _extract_query(self, filters: dict[str, Any], keys: tuple[str, ...]) -> str | None:
-        for key in keys:
-            value = filters.get(key)
-            if not isinstance(value, str):
-                continue
-            cleaned = value.replace('%', ' ').replace('_', ' ').strip()
-            if cleaned:
-                return cleaned
-        return None
-
-    def _extract_country_codes(self, filters: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
-        codes: list[str] = []
-        for key in keys:
-            value = filters.get(key)
-            if isinstance(value, str):
-                code = value.upper().strip()
-                if len(code) == 2:
-                    codes.append(code)
-            if isinstance(value, list):
-                for item in value:
-                    if isinstance(item, str):
-                        code = item.upper().strip()
-                        if len(code) == 2:
-                            codes.append(code)
-
-        deduplicated: list[str] = []
-        seen: set[str] = set()
-        for code in codes:
-            if code in seen:
-                continue
-            deduplicated.append(code)
-            seen.add(code)
-
-        return deduplicated
-
-    def _extract_country_code(self, filters: dict[str, Any]) -> str | None:
-        country_codes = self._extract_country_codes(filters, keys=('country_code', 'country_code_in'))
-        return country_codes[0] if country_codes else None
 
     def _normalize_countries(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deduplicated: dict[str, dict[str, Any]] = {}

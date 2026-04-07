@@ -39,7 +39,7 @@ def _auth_headers(tokens: dict) -> dict[str, str]:
     return {'Authorization': f'Bearer {tokens["access_token"]}'}
 
 
-def _client_headers(settings) -> dict[str, str]:
+def _client_auth_headers(settings) -> dict[str, str]:
     return {settings.client_geo.client_auth_header: settings.client_geo.client_auth_token}
 
 
@@ -357,7 +357,7 @@ def test_client_geo_endpoints_require_client_token(client, settings) -> None:
 
 
 def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
-    async def _mock_search_countries(self, *, filters, limit, offset):  # noqa: ARG001
+    async def _mock_search_countries(self, *, query, country_codes, limit, offset):  # noqa: ARG001
         return [
             {
                 'iso_a2': 'ZZ',
@@ -367,7 +367,7 @@ def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, set
         ]
 
     monkeypatch.setattr(GeoNamesClient, 'search_countries', _mock_search_countries)
-    headers = _client_headers(settings)
+    headers = _client_auth_headers(settings)
 
     first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
     assert first.status_code == 200
@@ -386,7 +386,7 @@ def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, set
 def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
     calls = {'count': 0}
 
-    async def _mock_search_cities(self, *, filters, limit, offset):  # noqa: ARG001
+    async def _mock_search_cities(self, *, query, country_code, limit, offset):  # noqa: ARG001
         calls['count'] += 1
         return [
             {
@@ -402,7 +402,7 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
         ]
 
     monkeypatch.setattr(GeoNamesClient, 'search_cities', _mock_search_cities)
-    headers = _client_headers(settings)
+    headers = _client_auth_headers(settings)
 
     first = client.get('/api/v1/client/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
     assert first.status_code == 200
@@ -421,7 +421,7 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
 
 
 def test_client_geo_rate_limit_returns_429(client, settings) -> None:
-    headers = _client_headers(settings)
+    headers = _client_auth_headers(settings)
     limiter = client.app.state.client_rate_limiter
     limiter.requests_per_window = 1
     limiter.window_seconds = 60
