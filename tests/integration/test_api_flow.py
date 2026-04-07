@@ -420,20 +420,14 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
     assert calls['count'] == 1
 
 
-def test_client_geo_rate_limit_returns_429(client, settings) -> None:
+def test_client_geo_repeated_requests_are_allowed(client, settings) -> None:
     headers = _client_auth_headers(settings)
-    limiter = client.app.state.client_rate_limiter
-    limiter.requests_per_window = 1
-    limiter.window_seconds = 60
 
     first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
     assert first.status_code == 200
 
     second = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
-    assert second.status_code == 429
-    second_payload = second.json()
-    assert second_payload['detail']['error'] == 'Too many requests'
-    assert second_payload['detail']['retry_after'] > 0
+    assert second.status_code == 200
 
 
 def test_service_error_status_code_passthrough(client, settings) -> None:

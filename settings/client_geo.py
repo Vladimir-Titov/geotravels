@@ -11,8 +11,6 @@ class ClientGeoSettings(BaseSettings):
 
     client_auth_header: str = 'X-Client-Token'
     client_auth_token: str = 'tripmark-client-token'
-    client_rate_limit_requests: int = Field(default=60, ge=1)
-    client_rate_limit_window_seconds: int = Field(default=60, ge=1)
 
     geonames_username: str | None = None
     geonames_base_url: str = 'https://api.geonames.org'

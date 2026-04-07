@@ -36,7 +36,7 @@ from app.services import (
     UsersService,
     VisitsService,
 )
-from app.services.client_access import ClientAuthContext, InMemoryRateLimiter
+from app.services.client_access import ClientAuthContext
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
@@ -123,10 +123,6 @@ def create_app(
             username=app_settings.client_geo.geonames_username,
             base_url=app_settings.client_geo.geonames_base_url,
             timeout_seconds=app_settings.client_geo.geonames_timeout_seconds,
-        )
-        app.state.client_rate_limiter = InMemoryRateLimiter(
-            requests_per_window=app_settings.client_geo.client_rate_limit_requests,
-            window_seconds=app_settings.client_geo.client_rate_limit_window_seconds,
         )
 
     async def shutdown(app: Litestar) -> None:
@@ -215,8 +211,6 @@ def create_app(
         if not hmac.compare_digest(provided_token, expected_token):
             raise HTTPException(status_code=401, detail='Invalid client token')
 
-        limiter_key = f'{provided_token}:{request.method}:{request.url.path}'
-        await request.app.state.client_rate_limiter.hit(limiter_key)
         return ClientAuthContext(token=provided_token)
 
     def after_exception(exc: Exception, _scope: object) -> None:

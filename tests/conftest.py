@@ -56,8 +56,6 @@ def settings() -> AppSettings:
         otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
         client_geo=ClientGeoSettings(
             client_auth_token='test-client-token',
-            client_rate_limit_requests=100,
-            client_rate_limit_window_seconds=60,
             geonames_username='demo',
         ),
     )
