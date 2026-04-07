@@ -23,6 +23,10 @@ class FileStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def download_file(self, file_url: str) -> bytes:
+        raise NotImplementedError
+
+    @abstractmethod
     async def check_connection(self) -> bool:
         raise NotImplementedError
 
@@ -83,6 +87,15 @@ class S3FileStorage(FileStorage):
         key = self._extract_key(file_url)
         async with self._client() as client:
             await client.delete_object(Bucket=self._settings.s3_bucket_name, Key=key)
+
+    async def download_file(self, file_url: str) -> bytes:
+        key = self._extract_key(file_url)
+        async with self._client() as client:
+            response = await client.get_object(Bucket=self._settings.s3_bucket_name, Key=key)
+            body = response.get('Body')
+            if body is None:
+                raise RuntimeError('Failed to read file body from storage response')
+            return await body.read()
 
     async def check_connection(self) -> bool:
         try:

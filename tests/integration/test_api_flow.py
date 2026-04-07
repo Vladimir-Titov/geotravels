@@ -195,6 +195,12 @@ def test_files_crud_for_owner(client, settings) -> None:
     assert created_file['visit_id'] == visit_id
     assert created_file['filename'] == 'paris.jpg'
 
+    download_response = client.get(f"/api/v1/files/{created_file['id']}/download", headers=auth_headers)
+    assert download_response.status_code == 200
+    assert download_response.content == b'fake-image-content'
+    assert download_response.headers['content-type'] == 'image/jpeg'
+    assert download_response.headers['content-disposition'] == 'attachment; filename="paris.jpg"'
+
     mine_response = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
     assert mine_response.status_code == 200
     mine_payload = mine_response.json()
@@ -268,6 +274,9 @@ def test_files_visibility_and_ownership(client, settings) -> None:
         json={'filename': 'hacked.jpg'},
     )
     assert foreign_update.status_code == 404
+
+    foreign_download = client.get(f'/api/v1/files/{public_file_id}/download', headers=stranger_headers)
+    assert foreign_download.status_code == 404
 
     foreign_delete = client.delete(f'/api/v1/files/{public_file_id}', headers=stranger_headers)
     assert foreign_delete.status_code == 404

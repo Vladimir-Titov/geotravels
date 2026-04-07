@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from litestar import Request, Router, delete, get, patch, post
-from litestar.datastructures import UploadFile
+from litestar import Response, Router, delete, get, patch, post
+from litestar.enums import RequestEncodingType
+from litestar.openapi.datastructures import ResponseSpec
+from litestar.params import Body
 
 from app.services.current_user import CurrentUser
 from app.services.exceptions import ServiceError
@@ -13,61 +16,34 @@ from web.api.schemas import (
     FilesListResponse,
     PaginationResponse,
     UpdateFileRequest,
+    UploadFileRequest,
     VisitFileResponse,
 )
 from web.utils import from_query
 
 
-def _parse_bool(value: object, default: bool = False) -> bool:
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-
-    normalized = str(value).strip().lower()
-    if normalized in {'1', 'true', 'yes', 'y', 'on'}:
-        return True
-    if normalized in {'0', 'false', 'no', 'n', 'off'}:
-        return False
-    raise ServiceError('Invalid is_private value')
-
-
 @post('', tags=['files'], security=[{'user_auth': []}])
-async def create_file(
-    request: Request,
+async def upload_file(
+    data: Annotated[UploadFileRequest, Body(media_type=RequestEncodingType.MULTI_PART)],
     files_service: FilesService,
     current_user: CurrentUser,
 ) -> VisitFileResponse:
-    form = await request.form()
-
-    visit_id_raw = form.get('visit_id')
-    if visit_id_raw is None:
-        raise ServiceError('visit_id is required')
-
-    try:
-        visit_id = UUID(str(visit_id_raw))
-    except ValueError as exc:
-        raise ServiceError('visit_id must be UUID') from exc
-
-    file = form.get('file')
-    if not isinstance(file, UploadFile):
-        raise ServiceError('file is required')
-
-    content = await file.read()
+    content = await data.file.read()
     if not content:
         raise ServiceError('File content is empty')
 
-    filename = str(form.get('filename')).strip() if form.get('filename') is not None else file.filename
-    file_type = str(form.get('file_type')).strip() if form.get('file_type') is not None else file.content_type
-    is_private = _parse_bool(form.get('is_private'), default=False)
+    filename = data.filename.strip() if data.filename is not None else data.file.filename
+    if filename == '':
+        filename = data.file.filename
+    file_type = data.file_type.strip() if data.file_type is not None else data.file.content_type
 
     created = await files_service.create_file_for_visit(
         user_id=current_user.id,
-        visit_id=visit_id,
+        visit_id=data.visit_id,
         content=content,
         filename=filename,
         file_type=file_type,
-        is_private=is_private,
+        is_private=data.is_private,
     )
     return VisitFileResponse(**created)
 
@@ -95,6 +71,36 @@ async def delete_file(
 ) -> VisitFileResponse:
     deleted = await files_service.delete_file(file_id=file_id, user_id=current_user.id)
     return VisitFileResponse(**deleted)
+
+
+@get(
+    '/{file_id:uuid}/download',
+    tags=['files'],
+    security=[{'user_auth': []}],
+    responses={
+        200: ResponseSpec(
+            data_container=bytes,
+            media_type='application/octet-stream',
+            description='File content',
+        )
+    },
+)
+async def download_file(
+    file_id: UUID,
+    files_service: FilesService,
+    current_user: CurrentUser,
+) -> Response[bytes]:
+    file_data = await files_service.download_file(file_id=file_id, user_id=current_user.id)
+
+    headers: dict[str, str] = {}
+    if file_data['filename']:
+        headers['Content-Disposition'] = f'attachment; filename="{file_data["filename"]}"'
+
+    return Response(
+        content=file_data['content'],
+        media_type=file_data['file_type'] or 'application/octet-stream',
+        headers=headers,
+    )
 
 
 @get(
@@ -154,5 +160,5 @@ async def list_public_user_files(
 
 files_router = Router(
     path='/api/v1/files',
-    route_handlers=[create_file, update_file, delete_file, list_my_files, list_public_user_files],
+    route_handlers=[upload_file, update_file, delete_file, download_file, list_my_files, list_public_user_files],
 )

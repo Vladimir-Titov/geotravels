@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
+from litestar.datastructures import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -375,6 +376,16 @@ class VisitsListResponse(BaseModel):
 
 class FollowRequest(BaseModel):
     following_id: UUID
+
+
+class UploadFileRequest(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    visit_id: UUID
+    file: UploadFile
+    filename: str | None = None
+    file_type: str | None = None
+    is_private: bool = False
 
 
 class UpdateFileRequest(BaseModel):

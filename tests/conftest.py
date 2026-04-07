@@ -40,6 +40,10 @@ class TestFileStorage:
         key = file_url.removeprefix('memory://')
         self._objects.pop(key, None)
 
+    async def download_file(self, file_url: str) -> bytes:
+        key = file_url.removeprefix('memory://')
+        return self._objects[key]
+
     async def check_connection(self) -> bool:
         return True
 

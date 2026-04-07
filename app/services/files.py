@@ -127,6 +127,18 @@ class FilesService:
 
         return existing
 
+    async def download_file(self, file_id: UUID, user_id: UUID) -> dict:
+        existing = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
+        if not existing:
+            raise NotFoundError('File not found')
+
+        content = await self.file_storage.download_file(existing['file_url'])
+        return {
+            'content': content,
+            'filename': existing.get('filename'),
+            'file_type': existing.get('file_type'),
+        }
+
     async def list_my_files(self, user_id: UUID, limit: int, offset: int, visit_id: UUID | None) -> PaginatedResponse:
         return await self.files_repository.list_files_by_user(
             user_id=user_id,
