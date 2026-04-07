@@ -55,7 +55,6 @@ def settings() -> AppSettings:
         auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
         otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
         client_geo=ClientGeoSettings(
-            client_auth_token='test-client-token',
             geonames_username='demo',
         ),
     )

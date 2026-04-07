@@ -39,10 +39,6 @@ def _auth_headers(tokens: dict) -> dict[str, str]:
     return {'Authorization': f'Bearer {tokens["access_token"]}'}
 
 
-def _client_auth_headers(settings) -> dict[str, str]:
-    return {settings.client_geo.client_auth_header: settings.client_geo.client_auth_token}
-
-
 def _prepare_followers_context(client, settings) -> dict[str, str]:
     me = _get_tokens(client, 'followers-me@example.com', settings.otp.otp_mock_code)
     other = _get_tokens(client, 'followers-other@example.com', settings.otp.otp_mock_code)
@@ -345,15 +341,15 @@ def test_countries_geojson_removed(client) -> None:
     assert response.status_code == 404
 
 
-def test_client_geo_endpoints_require_client_token(client, settings) -> None:
+def test_client_geo_endpoints_require_user_auth(client, settings) -> None:
     unauthorized = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR')
     assert unauthorized.status_code == 401
 
-    invalid_token = client.get(
+    invalid_auth = client.get(
         '/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR',
-        headers={settings.client_geo.client_auth_header: 'invalid-token'},
+        headers={'Authorization': 'Bearer invalid-token'},
     )
-    assert invalid_token.status_code == 401
+    assert invalid_auth.status_code == 401
 
 
 def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
@@ -367,7 +363,8 @@ def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, set
         ]
 
     monkeypatch.setattr(GeoNamesClient, 'search_countries', _mock_search_countries)
-    headers = _client_auth_headers(settings)
+    tokens = _get_tokens(client, 'client-geo-countries@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
 
     first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
     assert first.status_code == 200
@@ -402,7 +399,8 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
         ]
 
     monkeypatch.setattr(GeoNamesClient, 'search_cities', _mock_search_cities)
-    headers = _client_auth_headers(settings)
+    tokens = _get_tokens(client, 'client-geo-cities@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
 
     first = client.get('/api/v1/client/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
     assert first.status_code == 200
@@ -421,7 +419,8 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
 
 
 def test_client_geo_repeated_requests_are_allowed(client, settings) -> None:
-    headers = _client_auth_headers(settings)
+    tokens = _get_tokens(client, 'client-geo-repeat@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
 
     first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
     assert first.status_code == 200

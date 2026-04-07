@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hmac
 import logging
 from typing import Any
 
@@ -36,7 +35,6 @@ from app.services import (
     UsersService,
     VisitsService,
 )
-from app.services.client_access import ClientAuthContext
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
@@ -202,17 +200,6 @@ def create_app(
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=401, detail='Invalid access token') from exc
 
-    async def provide_client_auth_context(request: Request) -> ClientAuthContext:
-        auth_header = app_settings.client_geo.client_auth_header
-        provided_token = request.headers.get(auth_header, '')
-        expected_token = app_settings.client_geo.client_auth_token
-        if not provided_token:
-            raise HTTPException(status_code=401, detail=f'Missing {auth_header} header')
-        if not hmac.compare_digest(provided_token, expected_token):
-            raise HTTPException(status_code=401, detail='Invalid client token')
-
-        return ClientAuthContext(token=provided_token)
-
     def after_exception(exc: Exception, _scope: object) -> None:
         if not isinstance(exc, (HTTPException, ServiceError)):
             logger.exception('Unhandled exception', exc_info=exc)
@@ -236,11 +223,6 @@ def create_app(
             components=Components(
                 security_schemes={
                     'user_auth': SecurityScheme(type='http', scheme='bearer', bearer_format='JWT'),
-                    'client_auth': SecurityScheme(
-                        type='apiKey',
-                        name=app_settings.client_geo.client_auth_header,
-                        security_scheme_in='header',
-                    ),
                 }
             ),
         ),
@@ -259,7 +241,6 @@ def create_app(
             'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
-            'client_auth_context': Provide(provide_client_auth_context),
         },
         exception_handlers={
             ServiceError: _service_error_handler,
