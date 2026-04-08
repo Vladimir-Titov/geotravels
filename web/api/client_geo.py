@@ -60,4 +60,4 @@ async def list_client_cities(
     )
 
 
-client_geo_router = Router(path='/api/v1/client/geo', route_handlers=[list_client_countries, list_client_cities])
+client_geo_router = Router(path='/api/v1/geo', route_handlers=[list_client_countries, list_client_cities])

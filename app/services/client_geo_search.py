@@ -77,7 +77,7 @@ class ClientGeoSearchService:
             await self._upsert_cities(geonames_rows)
 
         return await self.cities_repository.paginated_search(
-            order_by='country_code,name_normalized',
+            order_by='country_code,name_normalized,-population',
             limit=limit,
             offset=offset,
             **filters,
@@ -119,28 +119,26 @@ class ClientGeoSearchService:
         if not deduplicated:
             return 0
 
-        updated = 0
-        inserted = 0
         country_codes = list(deduplicated.keys())
 
         async with self.countries_repository.transaction():
             existing_rows = await self.countries_repository.search(iso_a2_in=country_codes)
             existing_codes = {row['iso_a2'] for row in existing_rows}
-
-            for iso_a2, country_payload in deduplicated.items():
-                db_payload = {
+            to_insert = [
+                {
+                    'iso_a2': iso_a2,
                     'name': country_payload['name'],
                     'meta': self._serialize_json_field(country_payload.get('meta')),
                     'labels': self._serialize_json_field(country_payload.get('labels')),
                 }
-                if iso_a2 in existing_codes:
-                    await self.countries_repository.update(db_payload, iso_a2=iso_a2)
-                    updated += 1
-                else:
-                    await self.countries_repository.create(iso_a2=iso_a2, **db_payload)
-                    inserted += 1
+                for iso_a2, country_payload in deduplicated.items()
+                if iso_a2 not in existing_codes
+            ]
+            if not to_insert:
+                return 0
 
-        return inserted + updated
+            await self.countries_repository.create_many(to_insert)
+            return len(to_insert)
 
     async def _upsert_cities(self, payload: list[dict[str, Any]]) -> int:
         if not payload:

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import unicodedata
-import urllib.parse
-import urllib.request
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
+
+from aiohttp import ClientSession
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +18,12 @@ class GeoNamesClient:
         username: str | None,
         base_url: str,
         timeout_seconds: float,
+        session: ClientSession,
     ):
         self.username = username.strip() if username else None
         self.base_url = base_url.rstrip('/')
         self.timeout_seconds = timeout_seconds
+        self.session = session
 
     async def search_countries(
         self,
@@ -73,7 +74,6 @@ class GeoNamesClient:
 
         if not query and not country_code:
             return []
-
         params: dict[str, Any] = {
             'featureClass': 'P',
             'maxRows': max(1, min(limit, 100)),
@@ -92,19 +92,15 @@ class GeoNamesClient:
         if not self.username:
             return {}
 
-        query = urllib.parse.urlencode({'username': self.username, **params})
-        url = f'{self.base_url}/{path}?{query}'
-
-        def _load() -> dict[str, Any]:
-            with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:  # noqa: S310
-                payload = response.read().decode('utf-8')
-                data = json.loads(payload)
-                if not isinstance(data, dict):
-                    return {}
-                return data
-
         try:
-            return await asyncio.to_thread(_load)
+            async with self.session.get(
+                f'{self.base_url}/{path}',
+                params={'username': self.username, **params},
+                timeout=self.timeout_seconds,
+            ) as response:
+                response.raise_for_status()
+                payload = await response.json()
+                return payload
         except Exception as exc:  # noqa: BLE001
             logger.warning('GeoNames request failed: %s', exc)
             return {}
@@ -165,7 +161,7 @@ class GeoNamesClient:
             return None
         try:
             return Decimal(str(value))
-        except (InvalidOperation, ValueError):
+        except InvalidOperation, ValueError:
             return None
 
     def _parse_int(self, value: Any) -> int | None:
@@ -173,5 +169,5 @@ class GeoNamesClient:
             return None
         try:
             return int(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None

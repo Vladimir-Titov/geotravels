@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
 from litestar import Litestar, MediaType, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.di import Provide
@@ -72,6 +73,8 @@ def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
         'uvicorn.access': {'level': 'INFO', 'handlers': ['access_console'], 'propagate': False},
         'litestar': {'level': level, 'handlers': ['console'], 'propagate': False},
         'geotravels.sql': {'level': level, 'handlers': ['console'], 'propagate': False},
+        'faker': {'level': 'WARNING', 'handlers': ['console'], 'propagate': False},
+        'faker.factory': {'level': 'WARNING', 'handlers': ['console'], 'propagate': False},
     }
 
     for module, module_level in log_settings.log_module_levels.items():
@@ -111,19 +114,24 @@ def create_app(
     settings: AppSettings | None = None,
     db_pool: DBPool | None = None,
     file_storage: FileStorage | None = None,
+    http_session: aiohttp.ClientSession | None = None,
 ) -> Litestar:
     app_settings = settings or get_settings()
 
     async def startup(app: Litestar) -> None:
+        app.state.http_client_session = http_session or aiohttp.ClientSession()
         app.state.db_pool = db_pool or await create_db_pool_from_settings(app_settings)
         app.state.file_storage = file_storage or S3FileStorage(settings=app_settings.storage)
         app.state.geonames_client = GeoNamesClient(
             username=app_settings.client_geo.geonames_username,
             base_url=app_settings.client_geo.geonames_base_url,
             timeout_seconds=app_settings.client_geo.geonames_timeout_seconds,
+            session=app.state.http_client_session,
         )
 
     async def shutdown(app: Litestar) -> None:
+        if http_session is None and hasattr(app.state, 'http_client_session'):
+            await app.state.http_client_session.close()
         if db_pool is None and hasattr(app.state, 'db_pool'):
             await app.state.db_pool.close()
 

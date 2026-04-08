@@ -342,11 +342,11 @@ def test_countries_geojson_removed(client) -> None:
 
 
 def test_client_geo_endpoints_require_user_auth(client, settings) -> None:
-    unauthorized = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR')
+    unauthorized = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR')
     assert unauthorized.status_code == 401
 
     invalid_auth = client.get(
-        '/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR',
+        '/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR',
         headers={'Authorization': 'Bearer invalid-token'},
     )
     assert invalid_auth.status_code == 401
@@ -366,14 +366,14 @@ def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, set
     tokens = _get_tokens(client, 'client-geo-countries@example.com', settings.otp.otp_mock_code)
     headers = _auth_headers(tokens)
 
-    first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
+    first = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
     assert first.status_code == 200
     first_payload = first.json()
     assert first_payload['pagination']['total'] == 1
     assert first_payload['items'][0]['iso_a2'] == 'ZZ'
     assert first_payload['items'][0]['meta']['geonameId'] == 999001
 
-    second = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
+    second = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
     assert second.status_code == 200
     second_payload = second.json()
     assert second_payload['pagination']['total'] == 1
@@ -402,7 +402,7 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
     tokens = _get_tokens(client, 'client-geo-cities@example.com', settings.otp.otp_mock_code)
     headers = _auth_headers(tokens)
 
-    first = client.get('/api/v1/client/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
+    first = client.get('/api/v1/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
     assert first.status_code == 200
     first_payload = first.json()
     assert first_payload['pagination']['total'] == 1
@@ -410,7 +410,7 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
     assert first_payload['items'][0]['country_code'] == 'FR'
     assert first_payload['items'][0]['meta']['geonameId'] == 2988507
 
-    second = client.get('/api/v1/client/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
+    second = client.get('/api/v1/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
     assert second.status_code == 200
     second_payload = second.json()
     assert second_payload['pagination']['total'] == 1
@@ -422,10 +422,10 @@ def test_client_geo_repeated_requests_are_allowed(client, settings) -> None:
     tokens = _get_tokens(client, 'client-geo-repeat@example.com', settings.otp.otp_mock_code)
     headers = _auth_headers(tokens)
 
-    first = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
+    first = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
     assert first.status_code == 200
 
-    second = client.get('/api/v1/client/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
+    second = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
     assert second.status_code == 200
 
 
