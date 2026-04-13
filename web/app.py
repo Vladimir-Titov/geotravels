@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
 from litestar import Litestar, MediaType, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.di import Provide
@@ -15,6 +16,7 @@ from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 from app.repositories import (
     AchievementsRepository,
+    CitiesRepository,
     CountriesRepository,
     FilesRepository,
     FollowersRepository,
@@ -27,6 +29,7 @@ from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import (
     AchievementsService,
     AuthService,
+    ClientGeoSearchService,
     CountriesService,
     FilesService,
     FollowersService,
@@ -36,6 +39,7 @@ from app.services import (
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
+from app.services.geonames import GeoNamesClient
 from app.services.otp_sender import ResendOTPSender
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
@@ -69,6 +73,8 @@ def build_logging_config(log_settings: LogSettings) -> LoggingConfig:
         'uvicorn.access': {'level': 'INFO', 'handlers': ['access_console'], 'propagate': False},
         'litestar': {'level': level, 'handlers': ['console'], 'propagate': False},
         'geotravels.sql': {'level': level, 'handlers': ['console'], 'propagate': False},
+        'faker': {'level': 'WARNING', 'handlers': ['console'], 'propagate': False},
+        'faker.factory': {'level': 'WARNING', 'handlers': ['console'], 'propagate': False},
     }
 
     for module, module_level in log_settings.log_module_levels.items():
@@ -108,14 +114,24 @@ def create_app(
     settings: AppSettings | None = None,
     db_pool: DBPool | None = None,
     file_storage: FileStorage | None = None,
+    http_session: aiohttp.ClientSession | None = None,
 ) -> Litestar:
     app_settings = settings or get_settings()
 
     async def startup(app: Litestar) -> None:
+        app.state.http_client_session = http_session or aiohttp.ClientSession()
         app.state.db_pool = db_pool or await create_db_pool_from_settings(app_settings)
         app.state.file_storage = file_storage or S3FileStorage(settings=app_settings.storage)
+        app.state.geonames_client = GeoNamesClient(
+            username=app_settings.client_geo.geonames_username,
+            base_url=app_settings.client_geo.geonames_base_url,
+            timeout_seconds=app_settings.client_geo.geonames_timeout_seconds,
+            session=app.state.http_client_session,
+        )
 
     async def shutdown(app: Litestar) -> None:
+        if http_session is None and hasattr(app.state, 'http_client_session'):
+            await app.state.http_client_session.close()
         if db_pool is None and hasattr(app.state, 'db_pool'):
             await app.state.db_pool.close()
 
@@ -135,6 +151,14 @@ def create_app(
     def provide_countries_service(request: Request) -> CountriesService:
         countries_repository = CountriesRepository(request.app.state.db_pool)
         return CountriesService(countries_repository=countries_repository)
+
+    def provide_client_geo_search_service(request: Request) -> ClientGeoSearchService:
+        db_pool = request.app.state.db_pool
+        return ClientGeoSearchService(
+            countries_repository=CountriesRepository(db_pool),
+            cities_repository=CitiesRepository(db_pool),
+            geonames_client=request.app.state.geonames_client,
+        )
 
     def provide_achievements_service(request: Request) -> AchievementsService:
         achievements_repository = AchievementsRepository(request.app.state.db_pool)
@@ -219,6 +243,7 @@ def create_app(
             'auth_service': Provide(provide_auth_service, sync_to_thread=False),
             'achievements_service': Provide(provide_achievements_service, sync_to_thread=False),
             'countries_service': Provide(provide_countries_service, sync_to_thread=False),
+            'client_geo_search_service': Provide(provide_client_geo_search_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
             'files_service': Provide(provide_files_service, sync_to_thread=False),

@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.14.1,<1.18.0",
+    "aiohttp>=3.13.5",
     "litestar>=2.18.0",
     "pydantic>=2.11.0",
     "pydantic-settings>=2.8.1",
@@ -22,6 +23,7 @@ dependencies = [
     "resend>=2.26.0",
     "prometheus-client>=0.24.1",
     "aioboto3>=14.3.0",
+    "aiocache>=0.12.3",
 ]
 
 [dependency-groups]

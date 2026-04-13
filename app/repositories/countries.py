@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from app.models.tables import countries
@@ -6,6 +7,17 @@ from app.repositories.base import BaseEntityDBRepository
 
 class CountriesRepository(BaseEntityDBRepository):
     entity = countries
+
+    def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(row)
+        for field_name in ('labels', 'meta'):
+            value = normalized.get(field_name)
+            if isinstance(value, str):
+                try:
+                    normalized[field_name] = json.loads(value)
+                except json.JSONDecodeError:
+                    normalized[field_name] = value
+        return normalized
 
     async def list_all(self, **filters) -> list[dict[str, Any]]:
         return await self.search(**filters)

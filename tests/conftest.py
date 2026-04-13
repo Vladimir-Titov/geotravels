@@ -22,7 +22,7 @@ from app.models.tables import (
     users_achievements,
     visits,
 )
-from settings import AppSettings, AuthSettings, OtpSettings, to_sync_database_url
+from settings import AppSettings, AuthSettings, ClientGeoSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 
 TEST_OTP_MOCK_CODE = '654321'
@@ -54,6 +54,9 @@ def settings() -> AppSettings:
         countries_geojson_path=Path('data/countries.geojson'),
         auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
         otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
+        client_geo=ClientGeoSettings(
+            geonames_username='demo',
+        ),
     )
 
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
 
 from app.models.tables import achievements, users_achievements
+from app.services.geonames import GeoNamesClient
 from app.services.visits import VisitsService
 from settings import to_sync_database_url
 
@@ -337,6 +339,94 @@ def test_visits_user_id_filter_is_ignored(client, settings) -> None:
 def test_countries_geojson_removed(client) -> None:
     response = client.get('/api/v1/countries/geojson')
     assert response.status_code == 404
+
+
+def test_client_geo_endpoints_require_user_auth(client, settings) -> None:
+    unauthorized = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR')
+    assert unauthorized.status_code == 401
+
+    invalid_auth = client.get(
+        '/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR',
+        headers={'Authorization': 'Bearer invalid-token'},
+    )
+    assert invalid_auth.status_code == 401
+
+
+def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
+    async def _mock_search_countries(self, *, query, country_codes, limit, offset):  # noqa: ARG001
+        return [
+            {
+                'iso_a2': 'ZZ',
+                'name': 'Zedland',
+                'meta': {'geonameId': 999001, 'countryCode': 'ZZ', 'countryName': 'Zedland'},
+            }
+        ]
+
+    monkeypatch.setattr(GeoNamesClient, 'search_countries', _mock_search_countries)
+    tokens = _get_tokens(client, 'client-geo-countries@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+
+    first = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload['pagination']['total'] == 1
+    assert first_payload['items'][0]['iso_a2'] == 'ZZ'
+    assert first_payload['items'][0]['meta']['geonameId'] == 999001
+
+    second = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=ZZ', headers=headers)
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload['pagination']['total'] == 1
+    assert second_payload['items'][0]['meta']['geonameId'] == 999001
+
+
+def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
+    calls = {'count': 0}
+
+    async def _mock_search_cities(self, *, query, country_code, limit, offset):  # noqa: ARG001
+        calls['count'] += 1
+        return [
+            {
+                'id': UUID('05f1e4a3-0d4a-5ea0-a368-bf7e70f5b8ec'),
+                'country_code': 'FR',
+                'name': 'Paris',
+                'name_normalized': 'paris',
+                'latitude': Decimal('48.8566'),
+                'longitude': Decimal('2.3522'),
+                'population': 2148327,
+                'meta': {'geonameId': 2988507, 'countryCode': 'FR', 'countryName': 'France', 'name': 'Paris'},
+            }
+        ]
+
+    monkeypatch.setattr(GeoNamesClient, 'search_cities', _mock_search_cities)
+    tokens = _get_tokens(client, 'client-geo-cities@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+
+    first = client.get('/api/v1/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload['pagination']['total'] == 1
+    assert first_payload['items'][0]['name'] == 'Paris'
+    assert first_payload['items'][0]['country_code'] == 'FR'
+    assert first_payload['items'][0]['meta']['geonameId'] == 2988507
+
+    second = client.get('/api/v1/geo/cities?limit=5&offset=0&name_ilike=Paris', headers=headers)
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload['pagination']['total'] == 1
+    assert second_payload['items'][0]['name'] == 'Paris'
+    assert calls['count'] == 1
+
+
+def test_client_geo_repeated_requests_are_allowed(client, settings) -> None:
+    tokens = _get_tokens(client, 'client-geo-repeat@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+
+    first = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
+    assert first.status_code == 200
+
+    second = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=FR', headers=headers)
+    assert second.status_code == 200
 
 
 def test_service_error_status_code_passthrough(client, settings) -> None:
