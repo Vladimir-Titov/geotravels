@@ -4,6 +4,7 @@ import json
 from typing import Any
 from uuid import UUID
 
+from aiocache import cache
 from app.repositories.base import PaginatedResponse
 from app.repositories.cities import CitiesRepository
 from app.repositories.countries import CountriesRepository
