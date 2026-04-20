@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from litestar.datastructures import UploadFile
@@ -518,6 +518,89 @@ class VisitFileResponse(BaseModel):
 class FilesListResponse(BaseModel):
     items: list[VisitFileResponse]
     pagination: PaginationResponse
+
+
+class DashboardMeResponse(BaseModel):
+    display_name: str
+    username: str | None = None
+
+
+class DashboardStatsResponse(BaseModel):
+    countries_count: int
+    cities_count: int
+    stories_count: int
+
+
+class DashboardMilestoneResponse(BaseModel):
+    title: str
+    description: str
+    progress_percent: int
+    current_value: int
+    target_value: int
+
+
+class DashboardRecapResponse(BaseModel):
+    period: str
+    title: str
+    summary_line: str
+    is_ready: bool
+    share_url: str | None = None
+    share_route: str | None = None
+
+
+class DashboardRecentStoryLocationResponse(BaseModel):
+    country_code: str
+    country_name: str | None = None
+    city_id: UUID | None = None
+    city_name: str | None = None
+
+
+class DashboardStoryCountersResponse(BaseModel):
+    views: int | None = None
+    likes: int | None = None
+    comments: int | None = None
+
+
+DashboardStoryVisibility = Literal['private', 'followers', 'public']
+
+
+class DashboardRecentStoryResponse(BaseModel):
+    id: UUID
+    title: str
+    excerpt: str | None = None
+    visibility: DashboardStoryVisibility
+    created_at: datetime
+    location: DashboardRecentStoryLocationResponse
+    cover: str | None = None
+    counters: DashboardStoryCountersResponse
+
+
+class DashboardInboxItemResponse(BaseModel):
+    type: str
+    text: str
+    created_at: datetime
+    is_read: bool
+
+
+class DashboardInboxPreviewResponse(BaseModel):
+    unread_count: int
+    items: list[DashboardInboxItemResponse]
+
+
+class DashboardMostVisitedItemResponse(BaseModel):
+    country_name: str | None = None
+    trips_count: int
+    relative_bar_value: int
+
+
+class DashboardResponse(BaseModel):
+    me: DashboardMeResponse
+    stats: DashboardStatsResponse
+    next_milestone: DashboardMilestoneResponse
+    recap: DashboardRecapResponse
+    recent_stories: list[DashboardRecentStoryResponse]
+    inbox_preview: DashboardInboxPreviewResponse
+    most_visited: list[DashboardMostVisitedItemResponse]
 
 
 class TelegramAuthRequest(BaseModel):

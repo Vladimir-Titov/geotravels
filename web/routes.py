@@ -8,6 +8,7 @@ from web.api import (
     files_router,
     followers_router,
     healthcheck_router,
+    me_router,
     users_router,
     visits_router,
 )
@@ -19,6 +20,7 @@ route_handlers = [
     countries_router,
     users_router,
     followers_router,
+    me_router,
     files_router,
     visits_router,
     healthcheck_router,

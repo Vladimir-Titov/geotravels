@@ -8,6 +8,7 @@ from app.repositories.base import (
 )
 from app.repositories.cities import CitiesRepository
 from app.repositories.countries import CountriesRepository
+from app.repositories.dashboard import DashboardRepository
 from app.repositories.files import FilesRepository
 from app.repositories.followers import FollowersRepository
 from app.repositories.otp_requests import OtpRequestsRepository
@@ -26,6 +27,7 @@ __all__ = [
     'UsersAchievementsRepository',
     'CountriesRepository',
     'CitiesRepository',
+    'DashboardRepository',
     'FilesRepository',
     'FollowersRepository',
     'OtpRequestsRepository',
