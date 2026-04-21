@@ -5,8 +5,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
+from app.repositories.visits_cities import VisitsCitiesRepository
 from app.services.exceptions import NotFoundError
 from app.services.visits import VisitsService
 
@@ -19,7 +21,11 @@ async def _create_user(db_pool) -> UUID:
 @pytest.mark.asyncio
 async def test_visit_crud_for_current_user(db_pool) -> None:
     user_id = await _create_user(db_pool)
-    service = VisitsService(visits_repository=VisitsRepository(db_pool))
+    service = VisitsService(
+        visits_repository=VisitsRepository(db_pool),
+        visits_cities_repository=VisitsCitiesRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+    )
 
     created = await service.create_visit(
         user_id=user_id,
@@ -54,7 +60,11 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
 async def test_visit_scope_isolated_by_user(db_pool) -> None:
     owner_id = await _create_user(db_pool)
     stranger_id = await _create_user(db_pool)
-    service = VisitsService(visits_repository=VisitsRepository(db_pool))
+    service = VisitsService(
+        visits_repository=VisitsRepository(db_pool),
+        visits_cities_repository=VisitsCitiesRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+    )
 
     created = await service.create_visit(
         user_id=owner_id,

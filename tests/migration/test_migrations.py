@@ -35,6 +35,7 @@ def test_alembic_upgrade_head_creates_tables() -> None:
             'countries',
             'cities',
             'visits',
+            'visits_cities',
             'followers',
             'files',
             'files_visits',

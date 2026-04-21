@@ -181,6 +181,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_it_id,
                         'user_id': user_id,
                         'is_private': True,
+                        'is_cover': True,
                     },
                     {
                         'id': uuid7(),
@@ -188,6 +189,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_it_id,
                         'user_id': user_id,
                         'is_private': False,
+                        'is_cover': False,
                     },
                     {
                         'id': uuid7(),
@@ -195,6 +197,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_fr_no_city_id,
                         'user_id': user_id,
                         'is_private': True,
+                        'is_cover': False,
                     },
                 ],
             )
@@ -215,7 +218,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
         str(visit_de_id),
         str(visit_fr_no_city_id),
     ]
-    assert recent_stories[0]['cover'] == f'/api/v1/files/{latest_cover_file_id}/download'
+    assert recent_stories[0]['cover'] == f'/api/v1/files/{old_cover_file_id}/download'
     assert recent_stories[1]['cover'] is None
     assert recent_stories[2]['cover'] == f'/api/v1/files/{secondary_cover_file_id}/download'
     assert all('title' not in item for item in recent_stories)

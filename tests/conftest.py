@@ -8,20 +8,7 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
-from app.models.tables import (
-    achievements,
-    cities,
-    countries,
-    files,
-    files_visits,
-    followers,
-    metadata,
-    otp_requests,
-    telegram_users,
-    users,
-    users_achievements,
-    visits,
-)
+from app.models.tables import countries, metadata
 from settings import AppSettings, AuthSettings, ClientGeoSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 
@@ -74,29 +61,12 @@ def db_pool(settings: AppSettings):
     sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
     try:
         with sync_engine.connect() as conn:
-            conn.execute(text('CREATE SCHEMA IF NOT EXISTS tripmark'))
+            conn.execute(text('DROP SCHEMA IF EXISTS tripmark CASCADE'))
+            conn.execute(text('CREATE SCHEMA tripmark'))
             conn.commit()
         metadata.create_all(sync_engine)
         with sync_engine.connect() as conn:
-            # Keep reference countries, reset mutable business tables for deterministic tests.
-            for table in (
-                files_visits,
-                users_achievements,
-                files,
-                achievements,
-                visits,
-                followers,
-                cities,
-                otp_requests,
-                users,
-                telegram_users,
-            ):
-                conn.execute(table.delete())
-
-            existing = {row[0] for row in conn.execute(text('SELECT iso_a2 FROM tripmark.countries')).fetchall()}
-            to_insert = [c for c in country_rows if c['iso_a2'] not in existing]
-            if to_insert:
-                conn.execute(countries.insert(), to_insert)
+            conn.execute(countries.insert(), country_rows)
             conn.commit()
     finally:
         sync_engine.dispose()

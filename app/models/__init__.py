@@ -11,6 +11,7 @@ from app.models.tables import (
     users,
     users_achievements,
     visits,
+    visits_cities,
 )
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     'countries',
     'cities',
     'visits',
+    'visits_cities',
     'followers',
     'files',
     'files_visits',

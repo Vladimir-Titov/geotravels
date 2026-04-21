@@ -1,15 +1,18 @@
-"""merge files and achievements heads
+"""merge heads
 
-Revision ID: e1f9a3c6b2d4
+Revision ID: dc75048e7837
 Revises: d4b9a2e7c1f0, d4f8e2a1c9b7
-Create Date: 2026-04-06 19:45:00.000000
+Create Date: 2026-04-21 15:25:09.381405
 
 """
-
 from __future__ import annotations
 
+from alembic import op
+import sqlalchemy as sa
+
+
 # revision identifiers, used by Alembic.
-revision = 'e1f9a3c6b2d4'
+revision = 'dc75048e7837'
 down_revision = ('d4b9a2e7c1f0', 'd4f8e2a1c9b7')
 branch_labels = None
 depends_on = None
