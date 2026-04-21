@@ -43,6 +43,8 @@ class DashboardRepository(BaseDBRepository):
                 visits.c.id,
                 visits.c.country_code,
                 visits.c.city_id,
+                visits.c.visibility,
+                visits.c.cover_file_id,
                 visits.c.created,
             )
             .where(visits.c.user_id == user_id)
@@ -82,8 +84,9 @@ class DashboardRepository(BaseDBRepository):
                 countries.c.name.label('country_name'),
                 recent_visits.c.city_id,
                 cities.c.name.label('city_name'),
+                recent_visits.c.visibility,
                 recent_visits.c.created,
-                latest_attachment.c.file_id.label('cover_file_id'),
+                func.coalesce(recent_visits.c.cover_file_id, latest_attachment.c.file_id).label('cover_file_id'),
             )
             .select_from(
                 recent_visits.join(countries, countries.c.iso_a2 == recent_visits.c.country_code)

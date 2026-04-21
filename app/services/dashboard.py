@@ -89,7 +89,7 @@ class DashboardService:
         return {
             'id': row['id'],
             'excerpt': None,
-            'visibility': 'private',
+            'visibility': row.get('visibility') or 'private',
             'created_at': row['created'],
             'location': {
                 'country_code': row['country_code'],

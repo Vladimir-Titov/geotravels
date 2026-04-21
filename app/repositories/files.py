@@ -88,6 +88,15 @@ class FilesRepository(BaseDBRepository):
             return None
         return self._normalize_file_row(row)
 
+    async def is_owned_file_attached_to_visit(self, file_id: UUID, visit_id: UUID, user_id: UUID) -> bool:
+        query = select(files_visits.c.id).where(
+            files_visits.c.file_id == file_id,
+            files_visits.c.visit_id == visit_id,
+            files_visits.c.user_id == user_id,
+        )
+        row = await self.fetchrow(query)
+        return row is not None
+
     async def list_files_by_user(
         self,
         user_id: UUID,

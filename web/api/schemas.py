@@ -234,10 +234,43 @@ class VisitsListRequest(BaseListRequest):
     country_code_like: str | None = field(default=None)
     country_code_ilike: str | None = field(default=None)
 
+    title: str | None = field(default=None)
+    title_ne: str | None = field(default=None)
+    title_like: str | None = field(default=None)
+    title_ilike: str | None = field(default=None)
+
+    visibility: str | None = field(default=None)
+    visibility_ne: str | None = field(default=None)
+    visibility_in: list[str] | None = field(default=None)
+    visibility_notin: list[str] | None = field(default=None)
+
     city_id: UUID | None = field(default=None)
     city_id_ne: UUID | None = field(default=None)
     city_id_in: list[UUID] | None = field(default=None)
     city_id_notin: list[UUID] | None = field(default=None)
+
+    cover_file_id: UUID | None = field(default=None)
+    cover_file_id_ne: UUID | None = field(default=None)
+    cover_file_id_in: list[UUID] | None = field(default=None)
+    cover_file_id_notin: list[UUID] | None = field(default=None)
+
+    date_from: date | None = field(default=None)
+    date_from_ne: date | None = field(default=None)
+    date_from_lt: date | None = field(default=None)
+    date_from_le: date | None = field(default=None)
+    date_from_gt: date | None = field(default=None)
+    date_from_ge: date | None = field(default=None)
+    date_from_in: list[date] | None = field(default=None)
+    date_from_notin: list[date] | None = field(default=None)
+
+    date_to: date | None = field(default=None)
+    date_to_ne: date | None = field(default=None)
+    date_to_lt: date | None = field(default=None)
+    date_to_le: date | None = field(default=None)
+    date_to_gt: date | None = field(default=None)
+    date_to_ge: date | None = field(default=None)
+    date_to_in: list[date] | None = field(default=None)
+    date_to_notin: list[date] | None = field(default=None)
 
     trip_date: date | None = field(default=None)
     trip_date_ne: date | None = field(default=None)
@@ -441,16 +474,35 @@ class EarnedAchievementsListResponse(BaseModel):
     pagination: PaginationResponse
 
 
+VisitVisibility = Literal['private', 'followers', 'public']
+
+
 class MarkVisitRequest(BaseModel):
     country_code: str = Field(min_length=2, max_length=2)
-    city_id: UUID | None = None
-    trip_date: date | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = None
+    visibility: VisitVisibility = 'private'
+    date_from: date | None = None
+    date_to: date | None = None
+    city_ids: list[UUID] | None = None
+    cover_file_id: UUID | None = None
+
+    city_id: UUID | None = None  # backward compatibility (visit-v1)
+    trip_date: date | None = None  # backward compatibility (visit-v1)
 
 
 class UpdateVisitRequest(BaseModel):
     country_code: str | None = Field(default=None, min_length=2, max_length=2)
-    city_id: UUID | None = None
-    trip_date: date | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = None
+    visibility: VisitVisibility | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    city_ids: list[UUID] | None = None
+    cover_file_id: UUID | None = None
+
+    city_id: UUID | None = None  # backward compatibility (visit-v1)
+    trip_date: date | None = None  # backward compatibility (visit-v1)
 
 
 class VisitEventResponse(BaseModel):
@@ -459,6 +511,14 @@ class VisitEventResponse(BaseModel):
     id: UUID
     user_id: UUID
     country_code: str
+    title: str
+    description: str | None = None
+    visibility: VisitVisibility
+    date_from: date
+    date_to: date | None = None
+    city_ids: list[UUID] = Field(default_factory=list)
+    cover_file_id: UUID | None = None
+
     city_id: UUID | None = None
     trip_date: date | None = None
     created: datetime
@@ -557,7 +617,7 @@ class DashboardStoryCountersResponse(BaseModel):
     comments: int | None = None
 
 
-DashboardStoryVisibility = Literal['private', 'followers', 'public']
+DashboardStoryVisibility = VisitVisibility
 
 
 class DashboardRecentStoryResponse(BaseModel):

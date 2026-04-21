@@ -13,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Table,
+    Text,
     Uuid,
     func,
 )
@@ -77,13 +78,32 @@ visits = Table(
     Column('id', Uuid(as_uuid=True), primary_key=True),
     Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
     Column('country_code', String(length=2), ForeignKey('countries.iso_a2', ondelete='RESTRICT'), nullable=False),
+    Column('title', String(length=80), nullable=False, server_default='Untitled story'),
+    Column('description', Text, nullable=True),
+    Column('visibility', String(length=16), nullable=False, server_default='private'),
+    Column('date_from', Date, nullable=False, server_default=func.current_date()),
+    Column('date_to', Date, nullable=True),
     Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
+    Column('cover_file_id', Uuid(as_uuid=True), ForeignKey('files.id', ondelete='SET NULL'), nullable=True),
     Column('trip_date', Date, nullable=True),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
     Index('idx_city_id', 'city_id'),
+    Index('idx_visits_cover_file_id', 'cover_file_id'),
+    Index('idx_visits_visibility', 'visibility'),
+)
+
+visits_cities = Table(
+    'visits_cities',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('visit_id', Uuid(as_uuid=True), ForeignKey('visits.id', ondelete='CASCADE'), nullable=False),
+    Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='CASCADE'), nullable=False),
+    Index('idx_visits_cities_visit_id', 'visit_id'),
+    Index('idx_visits_cities_city_id', 'city_id'),
+    Index('idx_visits_cities_visit_city_unique', 'visit_id', 'city_id', unique=True),
 )
 
 followers = Table(

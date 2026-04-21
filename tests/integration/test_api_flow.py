@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
 
-from app.models.tables import achievements, users_achievements
+from app.models.tables import achievements, cities, users_achievements
 from app.services.geonames import GeoNamesClient
 from app.services.visits import VisitsService
 from settings import to_sync_database_url
@@ -149,6 +149,114 @@ def test_auth_and_visit_flow(client, settings) -> None:
     )
     assert refresh_response.status_code == 201
     assert refresh_response.json()['access_token']
+
+
+def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
+    tokens = _get_tokens(client, 'api-v2@example.com', settings.otp.otp_mock_code)
+    auth_headers = _auth_headers(tokens)
+
+    paris_id = uuid4()
+    lyon_id = uuid4()
+
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
+    try:
+        with sync_engine.begin() as conn:
+            conn.execute(
+                cities.insert(),
+                [
+                    {
+                        'id': paris_id,
+                        'country_code': 'FR',
+                        'name': 'Paris',
+                        'name_normalized': 'paris',
+                    },
+                    {
+                        'id': lyon_id,
+                        'country_code': 'FR',
+                        'name': 'Lyon',
+                        'name_normalized': 'lyon',
+                    },
+                ],
+            )
+    finally:
+        sync_engine.dispose()
+
+    create_response = client.post(
+        '/api/v1/visits',
+        headers=auth_headers,
+        json={
+            'country_code': 'FR',
+            'title': 'France spring story',
+            'description': 'Paris and Lyon',
+            'visibility': 'followers',
+            'date_from': '2025-03-10',
+            'date_to': '2025-03-15',
+            'city_ids': [str(paris_id), str(lyon_id)],
+        },
+    )
+    assert create_response.status_code == 201
+    created_visit = create_response.json()
+    visit_id = created_visit['id']
+
+    assert created_visit['title'] == 'France spring story'
+    assert created_visit['description'] == 'Paris and Lyon'
+    assert created_visit['visibility'] == 'followers'
+    assert created_visit['date_from'] == '2025-03-10'
+    assert created_visit['date_to'] == '2025-03-15'
+    assert created_visit['city_ids'] == [str(paris_id), str(lyon_id)]
+    assert created_visit['city_id'] == str(paris_id)
+    assert created_visit['trip_date'] == '2025-03-10'
+    assert created_visit['cover_file_id'] is None
+
+    upload_cover_response = client.post(
+        '/api/v1/files',
+        headers=auth_headers,
+        data={
+            'visit_id': visit_id,
+            'is_private': False,
+        },
+        files={'file': ('cover.jpg', b'cover-bytes', 'image/jpeg')},
+    )
+    assert upload_cover_response.status_code == 201
+    cover_file_id = upload_cover_response.json()['id']
+
+    set_cover_response = client.patch(
+        f'/api/v1/visits/{visit_id}',
+        headers=auth_headers,
+        json={'cover_file_id': cover_file_id, 'visibility': 'public'},
+    )
+    assert set_cover_response.status_code == 200
+    assert set_cover_response.json()['cover_file_id'] == cover_file_id
+    assert set_cover_response.json()['visibility'] == 'public'
+
+    get_response = client.get(f'/api/v1/visits/{visit_id}', headers=auth_headers)
+    assert get_response.status_code == 200
+    loaded = get_response.json()
+    assert loaded['city_ids'] == [str(paris_id), str(lyon_id)]
+    assert loaded['cover_file_id'] == cover_file_id
+    assert loaded['visibility'] == 'public'
+
+    list_response = client.get('/api/v1/visits?limit=10&offset=0', headers=auth_headers)
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert list_payload['pagination']['total'] == 1
+    assert list_payload['items'][0]['title'] == 'France spring story'
+    assert list_payload['items'][0]['city_ids'] == [str(paris_id), str(lyon_id)]
+
+    unset_cover_response = client.patch(
+        f'/api/v1/visits/{visit_id}',
+        headers=auth_headers,
+        json={'cover_file_id': None},
+    )
+    assert unset_cover_response.status_code == 200
+    assert unset_cover_response.json()['cover_file_id'] is None
+
+    foreign_cover_response = client.patch(
+        f'/api/v1/visits/{visit_id}',
+        headers=auth_headers,
+        json={'cover_file_id': str(uuid4())},
+    )
+    assert foreign_cover_response.status_code == 400
 
 
 def test_visits_are_user_scoped(client, settings) -> None:

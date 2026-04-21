@@ -24,6 +24,7 @@ from app.repositories import (
     OtpRequestsRepository,
     UsersAchievementsRepository,
     UsersRepository,
+    VisitsCitiesRepository,
     VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
@@ -175,8 +176,12 @@ def create_app(
         return UsersService(users_repository=users_repository)
 
     def provide_visits_service(request: Request) -> VisitsService:
-        visits_repository = VisitsRepository(request.app.state.db_pool)
-        return VisitsService(visits_repository=visits_repository)
+        db_pool = request.app.state.db_pool
+        return VisitsService(
+            visits_repository=VisitsRepository(db_pool),
+            visits_cities_repository=VisitsCitiesRepository(db_pool),
+            files_repository=FilesRepository(db_pool),
+        )
 
     def provide_dashboard_service(request: Request) -> DashboardService:
         dashboard_repository = DashboardRepository(request.app.state.db_pool)
