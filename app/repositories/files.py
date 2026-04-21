@@ -63,6 +63,7 @@ class FilesRepository(BaseDBRepository):
         visit_id: UUID,
         user_id: UUID,
         is_private: bool,
+        visibility: str,
         is_cover: bool = False,
     ) -> dict[str, Any]:
         query = (
@@ -73,6 +74,7 @@ class FilesRepository(BaseDBRepository):
                 visit_id=visit_id,
                 user_id=user_id,
                 is_private=is_private,
+                visibility=visibility,
                 is_cover=is_cover,
             )
             .returning(files_visits)
