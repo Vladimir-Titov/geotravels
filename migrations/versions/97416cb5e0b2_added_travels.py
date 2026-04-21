@@ -80,7 +80,7 @@ def upgrade() -> None:
     op.add_column('visits', sa.Column('title', sa.String(length=80), nullable=True), schema='tripmark')
     op.add_column('visits', sa.Column('description', sa.Text(), nullable=True), schema='tripmark')
     op.add_column(
-        'visits', sa.Column('visibility', sa.String(length=16), server_default=sa.text('private')), schema='tripmark'
+        'visits', sa.Column('visibility', sa.String(length=16), server_default='private'), schema='tripmark'
     )
     op.add_column(
         'visits',
