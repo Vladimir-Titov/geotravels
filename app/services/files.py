@@ -76,6 +76,7 @@ class FilesService:
                     visit_id=visit_id,
                     user_id=user_id,
                     is_private=is_private,
+                    visibility='private' if is_private else 'public',
                 )
         except Exception:
             logger.exception('Failed to persist file metadata, rolling back uploaded object')
