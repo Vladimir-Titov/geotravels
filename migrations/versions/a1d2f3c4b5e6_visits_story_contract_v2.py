@@ -28,7 +28,11 @@ def upgrade() -> None:
     )
     op.add_column('visits', sa.Column('date_from', sa.Date(), nullable=True), schema='tripmark')
     op.add_column('visits', sa.Column('date_to', sa.Date(), nullable=True), schema='tripmark')
-    op.add_column('visits', sa.Column('cover_file_id', sa.Uuid(), nullable=True), schema='tripmark')
+    op.add_column(
+        'files_visits',
+        sa.Column('is_cover', sa.Boolean(), nullable=False, server_default=sa.text('false')),
+        schema='tripmark',
+    )
 
     op.execute("UPDATE tripmark.visits SET title = COALESCE(NULLIF(title, ''), 'Untitled story')")
     op.execute('UPDATE tripmark.visits SET date_from = COALESCE(date_from, trip_date, created::date)')
@@ -50,18 +54,16 @@ def upgrade() -> None:
         server_default=sa.text('CURRENT_DATE'),
     )
 
-    op.create_foreign_key(
-        'fk_visits_cover_file_id_files',
-        'visits',
-        'files',
-        ['cover_file_id'],
-        ['id'],
-        source_schema='tripmark',
-        referent_schema='tripmark',
-        ondelete='SET NULL',
-    )
-    op.create_index('idx_visits_cover_file_id', 'visits', ['cover_file_id'], unique=False, schema='tripmark')
     op.create_index('idx_visits_visibility', 'visits', ['visibility'], unique=False, schema='tripmark')
+    op.create_index('idx_files_visits_is_cover', 'files_visits', ['is_cover'], unique=False, schema='tripmark')
+    op.create_index(
+        'idx_files_visits_cover_unique',
+        'files_visits',
+        ['visit_id'],
+        unique=True,
+        schema='tripmark',
+        postgresql_where=sa.text('is_cover AND visit_id IS NOT NULL'),
+    )
 
     op.create_table(
         'visits_cities',
@@ -109,11 +111,11 @@ def downgrade() -> None:
     op.drop_index('idx_visits_cities_visit_id', table_name='visits_cities', schema='tripmark')
     op.drop_table('visits_cities', schema='tripmark')
 
+    op.drop_index('idx_files_visits_cover_unique', table_name='files_visits', schema='tripmark')
+    op.drop_index('idx_files_visits_is_cover', table_name='files_visits', schema='tripmark')
     op.drop_index('idx_visits_visibility', table_name='visits', schema='tripmark')
-    op.drop_index('idx_visits_cover_file_id', table_name='visits', schema='tripmark')
-    op.drop_constraint('fk_visits_cover_file_id_files', 'visits', schema='tripmark', type_='foreignkey')
 
-    op.drop_column('visits', 'cover_file_id', schema='tripmark')
+    op.drop_column('files_visits', 'is_cover', schema='tripmark')
     op.drop_column('visits', 'date_to', schema='tripmark')
     op.drop_column('visits', 'date_from', schema='tripmark')
     op.drop_column('visits', 'visibility', schema='tripmark')

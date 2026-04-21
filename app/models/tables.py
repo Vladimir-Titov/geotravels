@@ -84,14 +84,12 @@ visits = Table(
     Column('date_from', Date, nullable=False, server_default=func.current_date()),
     Column('date_to', Date, nullable=True),
     Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
-    Column('cover_file_id', Uuid(as_uuid=True), ForeignKey('files.id', ondelete='SET NULL'), nullable=True),
     Column('trip_date', Date, nullable=True),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
     Index('idx_city_id', 'city_id'),
-    Index('idx_visits_cover_file_id', 'cover_file_id'),
     Index('idx_visits_visibility', 'visibility'),
 )
 
@@ -165,9 +163,17 @@ files_visits = Table(
     Column('visit_id', Uuid(as_uuid=True), ForeignKey('visits.id', ondelete='SET NULL'), nullable=True),
     Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
     Column('is_private', Boolean(), nullable=False, server_default='false'),
+    Column('is_cover', Boolean(), nullable=False, server_default='false'),
     Index('idx_files_visits_file_id', 'file_id'),
     Index('idx_files_visits_visit_id', 'visit_id'),
     Index('idx_files_visits_user_id', 'user_id'),
+    Index('idx_files_visits_is_cover', 'is_cover'),
+    Index(
+        'idx_files_visits_cover_unique',
+        'visit_id',
+        unique=True,
+        postgresql_where=(Column('is_cover').is_(True) & Column('visit_id').is_not(None)),
+    ),
 )
 
 otp_requests = Table(

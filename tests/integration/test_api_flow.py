@@ -218,7 +218,9 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
         files={'file': ('cover.jpg', b'cover-bytes', 'image/jpeg')},
     )
     assert upload_cover_response.status_code == 201
-    cover_file_id = upload_cover_response.json()['id']
+    cover_file_payload = upload_cover_response.json()
+    cover_file_id = cover_file_payload['id']
+    assert cover_file_payload['is_cover'] is False
 
     set_cover_response = client.patch(
         f'/api/v1/visits/{visit_id}',
@@ -228,6 +230,16 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     assert set_cover_response.status_code == 200
     assert set_cover_response.json()['cover_file_id'] == cover_file_id
     assert set_cover_response.json()['visibility'] == 'public'
+
+    covered_files_response = client.get(
+        f'/api/v1/files/mine?limit=10&offset=0&visit_id={visit_id}',
+        headers=auth_headers,
+    )
+    assert covered_files_response.status_code == 200
+    covered_files = covered_files_response.json()['items']
+    assert len(covered_files) == 1
+    assert covered_files[0]['id'] == cover_file_id
+    assert covered_files[0]['is_cover'] is True
 
     get_response = client.get(f'/api/v1/visits/{visit_id}', headers=auth_headers)
     assert get_response.status_code == 200
@@ -250,6 +262,13 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     )
     assert unset_cover_response.status_code == 200
     assert unset_cover_response.json()['cover_file_id'] is None
+
+    uncovered_files_response = client.get(
+        f'/api/v1/files/mine?limit=10&offset=0&visit_id={visit_id}',
+        headers=auth_headers,
+    )
+    assert uncovered_files_response.status_code == 200
+    assert uncovered_files_response.json()['items'][0]['is_cover'] is False
 
     foreign_cover_response = client.patch(
         f'/api/v1/visits/{visit_id}',

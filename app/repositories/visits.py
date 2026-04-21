@@ -21,7 +21,6 @@ class VisitsRepository(BaseEntityDBRepository):
         date_from: date,
         date_to: date | None,
         city_id: UUID | None,
-        cover_file_id: UUID | None,
         trip_date: date | None,
     ) -> dict[str, Any]:
         return await super().create(
@@ -34,7 +33,6 @@ class VisitsRepository(BaseEntityDBRepository):
             date_from=date_from,
             date_to=date_to,
             city_id=city_id,
-            cover_file_id=cover_file_id,
             trip_date=trip_date,
         )
 
@@ -58,6 +56,4 @@ class VisitsRepository(BaseEntityDBRepository):
             row['user_id'] = UUID(row['user_id'])
         if isinstance(row.get('city_id'), str):
             row['city_id'] = UUID(row['city_id'])
-        if isinstance(row.get('cover_file_id'), str):
-            row['cover_file_id'] = UUID(row['cover_file_id'])
         return row

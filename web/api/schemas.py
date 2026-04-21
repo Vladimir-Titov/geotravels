@@ -249,11 +249,6 @@ class VisitsListRequest(BaseListRequest):
     city_id_in: list[UUID] | None = field(default=None)
     city_id_notin: list[UUID] | None = field(default=None)
 
-    cover_file_id: UUID | None = field(default=None)
-    cover_file_id_ne: UUID | None = field(default=None)
-    cover_file_id_in: list[UUID] | None = field(default=None)
-    cover_file_id_notin: list[UUID] | None = field(default=None)
-
     date_from: date | None = field(default=None)
     date_from_ne: date | None = field(default=None)
     date_from_lt: date | None = field(default=None)
@@ -573,6 +568,7 @@ class VisitFileResponse(BaseModel):
     visit_id: UUID | None = None
     user_id: UUID | None = None
     is_private: bool
+    is_cover: bool = False
 
 
 class FilesListResponse(BaseModel):

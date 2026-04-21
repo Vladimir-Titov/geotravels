@@ -103,6 +103,11 @@ class VisitsService:
 
         visit_ids = [row['id'] for row in visits_rows]
         city_ids_by_visit = await self.visits_cities_repository.list_city_ids_for_visits(visit_ids)
+        user_id = visits_rows[0].get('user_id')
+        cover_file_ids_by_visit = await self.files_repository.list_cover_file_ids_for_visits(
+            visit_ids=visit_ids,
+            user_id=user_id if isinstance(user_id, UUID) else None,
+        )
 
         enriched: list[dict[str, Any]] = []
         for row in visits_rows:
@@ -119,6 +124,7 @@ class VisitsService:
             item['trip_date'] = item.get('trip_date') or item['date_from']
             item['city_ids'] = city_ids
             item['city_id'] = self._resolve_primary_city_id(city_ids)
+            item['cover_file_id'] = cover_file_ids_by_visit.get(item['id'])
 
             enriched.append(item)
 
@@ -161,7 +167,6 @@ class VisitsService:
                 date_from=resolved_date_from,
                 date_to=date_to,
                 city_id=resolved_city_id,
-                cover_file_id=None,
                 trip_date=resolved_trip_date,
             )
             await self.visits_cities_repository.replace_cities_for_visit(
@@ -174,9 +179,10 @@ class VisitsService:
                     visit_id=created['id'],
                     user_id=user_id,
                 )
-                created = await self.visits_repository.update_by_id(
-                    entity_id=created['id'],
-                    cover_file_id=cover_file_id,
+                await self.files_repository.set_cover_file_for_visit(
+                    file_id=cover_file_id,
+                    visit_id=created['id'],
+                    user_id=user_id,
                 )
 
         return await self._enrich_visit(created)
@@ -212,6 +218,7 @@ class VisitsService:
         provided_city_id = update_payload.pop('city_id', None)
         provided_date_from = update_payload.pop('date_from', None)
         provided_trip_date = update_payload.pop('trip_date', None)
+        cover_file_id = update_payload.pop('cover_file_id', None) if has_cover_file_id else None
 
         next_city_ids: list[UUID] | None = None
         if has_city_ids or has_city_id:
@@ -235,7 +242,6 @@ class VisitsService:
             update_payload['visibility'] = self._normalize_visibility(update_payload['visibility'])
 
         if has_cover_file_id:
-            cover_file_id = update_payload.get('cover_file_id')
             if cover_file_id is not None:
                 await self._ensure_cover_file_attached(
                     cover_file_id=cover_file_id,
@@ -258,6 +264,15 @@ class VisitsService:
                     visit_id=visit_id,
                     city_ids=next_city_ids,
                 )
+            if has_cover_file_id:
+                if cover_file_id is None:
+                    await self.files_repository.clear_cover_for_visit(visit_id=visit_id, user_id=user_id)
+                else:
+                    await self.files_repository.set_cover_file_for_visit(
+                        file_id=cover_file_id,
+                        visit_id=visit_id,
+                        user_id=user_id,
+                    )
 
         return await self._enrich_visit(updated)
 

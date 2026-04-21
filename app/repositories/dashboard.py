@@ -44,12 +44,36 @@ class DashboardRepository(BaseDBRepository):
                 visits.c.country_code,
                 visits.c.city_id,
                 visits.c.visibility,
-                visits.c.cover_file_id,
                 visits.c.created,
             )
             .where(visits.c.user_id == user_id)
             .order_by(visits.c.created.desc(), visits.c.id.desc())
             .limit(limit)
+            .subquery()
+        )
+
+        explicit_cover = (
+            select(
+                files_visits.c.visit_id,
+                files_visits.c.file_id,
+                func.row_number()
+                .over(
+                    partition_by=files_visits.c.visit_id,
+                    order_by=files_visits.c.id.desc(),
+                )
+                .label('row_num'),
+            )
+            .select_from(
+                files_visits.join(recent_visits, recent_visits.c.id == files_visits.c.visit_id).join(
+                    files,
+                    files_visits.c.file_id == files.c.id,
+                )
+            )
+            .where(
+                files_visits.c.user_id == user_id,
+                files_visits.c.file_id.is_not(None),
+                files_visits.c.is_cover.is_(True),
+            )
             .subquery()
         )
 
@@ -86,11 +110,18 @@ class DashboardRepository(BaseDBRepository):
                 cities.c.name.label('city_name'),
                 recent_visits.c.visibility,
                 recent_visits.c.created,
-                func.coalesce(recent_visits.c.cover_file_id, latest_attachment.c.file_id).label('cover_file_id'),
+                func.coalesce(explicit_cover.c.file_id, latest_attachment.c.file_id).label('cover_file_id'),
             )
             .select_from(
                 recent_visits.join(countries, countries.c.iso_a2 == recent_visits.c.country_code)
                 .outerjoin(cities, cities.c.id == recent_visits.c.city_id)
+                .outerjoin(
+                    explicit_cover,
+                    and_(
+                        explicit_cover.c.visit_id == recent_visits.c.id,
+                        explicit_cover.c.row_num == 1,
+                    ),
+                )
                 .outerjoin(
                     latest_attachment,
                     and_(
