@@ -61,17 +61,18 @@ def test_dashboard_empty_returns_stable_placeholders(client, settings) -> None:
 
     assert payload['stats'] == {'countries_count': 0, 'cities_count': 0, 'stories_count': 0}
 
-    assert payload['next_milestone']['title'] == 'Explorer / 10 countries'
     assert payload['next_milestone']['current_value'] == 0
     assert payload['next_milestone']['target_value'] == 10
     assert payload['next_milestone']['progress_percent'] == 0
+    assert 'title' not in payload['next_milestone']
+    assert 'description' not in payload['next_milestone']
 
     assert payload['recap']['period'] == datetime.now().strftime('%Y-%m')
-    assert payload['recap']['title'] == 'Monthly recap'
-    assert payload['recap']['summary_line'] == 'Your monthly recap will be available soon.'
     assert payload['recap']['is_ready'] is False
     assert payload['recap']['share_url'] is None
     assert payload['recap']['share_route'] is None
+    assert 'title' not in payload['recap']
+    assert 'summary_line' not in payload['recap']
 
     assert payload['recent_stories'] == []
     assert payload['inbox_preview'] == {'unread_count': 0, 'items': []}
@@ -214,10 +215,10 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
         str(visit_de_id),
         str(visit_fr_no_city_id),
     ]
-    assert [item['title'] for item in recent_stories] == ['Trip to Rome', 'Trip to Berlin', 'Trip to France']
     assert recent_stories[0]['cover'] == f'/api/v1/files/{latest_cover_file_id}/download'
     assert recent_stories[1]['cover'] is None
     assert recent_stories[2]['cover'] == f'/api/v1/files/{secondary_cover_file_id}/download'
+    assert all('title' not in item for item in recent_stories)
 
     most_visited = payload['most_visited']
     assert [item['country_name'] for item in most_visited] == ['France', 'Germany', 'Italy']

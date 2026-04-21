@@ -8,12 +8,7 @@ from app.repositories.dashboard import DashboardRepository
 
 
 class DashboardService:
-    MILESTONE_TITLE = 'Explorer / 10 countries'
     MILESTONE_TARGET_VALUE = 10
-    MILESTONE_DESCRIPTION = 'Visit more countries to unlock your next milestone.'
-
-    RECAP_TITLE = 'Monthly recap'
-    RECAP_SUMMARY_PLACEHOLDER = 'Your monthly recap will be available soon.'
 
     def __init__(self, dashboard_repository: DashboardRepository):
         self.dashboard_repository = dashboard_repository
@@ -39,8 +34,6 @@ class DashboardService:
                 'stories_count': stories_count,
             },
             'next_milestone': {
-                'title': self.MILESTONE_TITLE,
-                'description': self.MILESTONE_DESCRIPTION,
                 'progress_percent': self._compute_progress_percent(
                     current_value=countries_count,
                     target_value=self.MILESTONE_TARGET_VALUE,
@@ -50,8 +43,6 @@ class DashboardService:
             },
             'recap': {
                 'period': datetime.now().strftime('%Y-%m'),
-                'title': self.RECAP_TITLE,
-                'summary_line': self.RECAP_SUMMARY_PLACEHOLDER,
                 'is_ready': False,
                 'share_url': None,
                 'share_route': None,
@@ -64,7 +55,7 @@ class DashboardService:
             'most_visited': self._build_most_visited(top_country_rows),
         }
 
-    def _resolve_display_name(self, user_snapshot: dict[str, Any]) -> str:
+    def _resolve_display_name(self, user_snapshot: dict[str, Any]) -> str | None:
         first_name = (user_snapshot.get('first_name') or '').strip()
         last_name = (user_snapshot.get('last_name') or '').strip()
         full_name = ' '.join(part for part in (first_name, last_name) if part)
@@ -79,7 +70,7 @@ class DashboardService:
         if email:
             return email.split('@', 1)[0] or email
 
-        return 'Traveler'
+        return None
 
     def _compute_progress_percent(self, current_value: int, target_value: int) -> int:
         if target_value <= 0:
@@ -92,20 +83,11 @@ class DashboardService:
         city_name = row.get('city_name')
         country_name = row.get('country_name')
 
-        title: str
-        if city_name:
-            title = f'Trip to {city_name}'
-        elif country_name:
-            title = f'Trip to {country_name}'
-        else:
-            title = 'Untitled trip'
-
         cover_file_id = row.get('cover_file_id')
         cover = f'/api/v1/files/{cover_file_id}/download' if cover_file_id else None
 
         return {
             'id': row['id'],
-            'title': title,
             'excerpt': None,
             'visibility': 'private',
             'created_at': row['created'],
