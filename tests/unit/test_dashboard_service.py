@@ -73,7 +73,7 @@ class StubDashboardRepository:
                 'username': None,
                 'email': None,
             },
-            'Traveler',
+            None,
         ),
     ],
 )
@@ -119,7 +119,7 @@ async def test_progress_percent_is_clamped(countries_count, expected_percent) ->
 
 
 @pytest.mark.asyncio
-async def test_recent_story_title_fallback_without_city() -> None:
+async def test_recent_story_keeps_location_and_omits_title() -> None:
     now = datetime.now(tz=timezone.utc)
     service = DashboardService(
         dashboard_repository=StubDashboardRepository(
@@ -150,8 +150,13 @@ async def test_recent_story_title_fallback_without_city() -> None:
 
     dashboard = await service.get_dashboard(user_id=uuid4())
 
-    assert dashboard['recent_stories'][0]['title'] == 'Trip to France'
-    assert dashboard['recent_stories'][1]['title'] == 'Untitled trip'
+    first_story = dashboard['recent_stories'][0]
+    second_story = dashboard['recent_stories'][1]
+
+    assert first_story['location']['country_name'] == 'France'
+    assert second_story['location']['country_name'] is None
+    assert 'title' not in first_story
+    assert 'title' not in second_story
 
 
 @pytest.mark.asyncio
@@ -177,11 +182,11 @@ async def test_recap_inbox_and_story_counters_are_stable_placeholders() -> None:
 
     dashboard = await service.get_dashboard(user_id=uuid4())
 
-    assert dashboard['recap']['title'] == 'Monthly recap'
-    assert dashboard['recap']['summary_line'] == 'Your monthly recap will be available soon.'
     assert dashboard['recap']['is_ready'] is False
     assert dashboard['recap']['share_url'] is None
     assert dashboard['recap']['share_route'] is None
+    assert 'title' not in dashboard['recap']
+    assert 'summary_line' not in dashboard['recap']
 
     assert dashboard['inbox_preview']['unread_count'] == 0
     assert dashboard['inbox_preview']['items'] == []

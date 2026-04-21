@@ -521,7 +521,7 @@ class FilesListResponse(BaseModel):
 
 
 class DashboardMeResponse(BaseModel):
-    display_name: str
+    display_name: str | None = None
     username: str | None = None
 
 
@@ -532,8 +532,6 @@ class DashboardStatsResponse(BaseModel):
 
 
 class DashboardMilestoneResponse(BaseModel):
-    title: str
-    description: str
     progress_percent: int
     current_value: int
     target_value: int
@@ -541,8 +539,6 @@ class DashboardMilestoneResponse(BaseModel):
 
 class DashboardRecapResponse(BaseModel):
     period: str
-    title: str
-    summary_line: str
     is_ready: bool
     share_url: str | None = None
     share_route: str | None = None
@@ -566,7 +562,6 @@ DashboardStoryVisibility = Literal['private', 'followers', 'public']
 
 class DashboardRecentStoryResponse(BaseModel):
     id: UUID
-    title: str
     excerpt: str | None = None
     visibility: DashboardStoryVisibility
     created_at: datetime
