@@ -1,4 +1,4 @@
-from __future__ import annotations
+from enum import StrEnum
 
 from sqlalchemy import (
     BigInteger,
@@ -20,6 +20,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData(schema='tripmark')
+
+
+class VisitStatus(StrEnum):
+    PLANNED = 'planned'
+    IN_TRIP = 'in_trip'
+    VISITED = 'visited'
+
 
 users = Table(
     'users',
@@ -85,6 +92,9 @@ visits = Table(
     Column('date_to', Date, nullable=True),
     Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
     Column('trip_date', Date, nullable=True),
+    Column('trip_start', Date, nullable=True),
+    Column('trip_end', Date, nullable=True),
+    Column('status', String(length=16), nullable=False, server_default=VisitStatus.VISITED),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
