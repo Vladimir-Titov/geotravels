@@ -164,11 +164,16 @@ def create_app(
         )
 
     def provide_achievements_service(request: Request) -> AchievementsService:
-        achievements_repository = AchievementsRepository(request.app.state.db_pool)
-        users_achievements_repository = UsersAchievementsRepository(request.app.state.db_pool)
+        db_pool = request.app.state.db_pool
+        achievements_repository = AchievementsRepository(db_pool)
+        users_achievements_repository = UsersAchievementsRepository(db_pool)
         return AchievementsService(
             achievements_repository=achievements_repository,
             users_achievements_repository=users_achievements_repository,
+            visits_repository=VisitsRepository(db_pool),
+            files_repository=FilesRepository(db_pool),
+            followers_repository=FollowersRepository(db_pool),
+            users_repository=UsersRepository(db_pool),
         )
 
     def provide_users_service(request: Request) -> UsersService:
@@ -177,10 +182,12 @@ def create_app(
 
     def provide_visits_service(request: Request) -> VisitsService:
         db_pool = request.app.state.db_pool
+        achievements_service = provide_achievements_service(request)
         return VisitsService(
             visits_repository=VisitsRepository(db_pool),
             visits_cities_repository=VisitsCitiesRepository(db_pool),
             files_repository=FilesRepository(db_pool),
+            achievements_service=achievements_service,
         )
 
     def provide_dashboard_service(request: Request) -> DashboardService:
@@ -190,18 +197,22 @@ def create_app(
     def provide_followers_service(request: Request) -> FollowersService:
         users_repository = UsersRepository(request.app.state.db_pool)
         followers_repository = FollowersRepository(request.app.state.db_pool)
+        achievements_service = provide_achievements_service(request)
         return FollowersService(
             followers_repository=followers_repository,
             users_repository=users_repository,
+            achievements_service=achievements_service,
         )
 
     def provide_files_service(request: Request) -> FilesService:
         files_repository = FilesRepository(request.app.state.db_pool)
         visits_repository = VisitsRepository(request.app.state.db_pool)
+        achievements_service = provide_achievements_service(request)
         return FilesService(
             files_repository=files_repository,
             visits_repository=visits_repository,
             file_storage=request.app.state.file_storage,
+            achievements_service=achievements_service,
         )
 
     def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:

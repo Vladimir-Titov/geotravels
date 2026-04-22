@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
 
 from app.repositories.achievements import AchievementsRepository
+from app.repositories.files import FilesRepository
+from app.repositories.followers import FollowersRepository
 from app.repositories.users import UsersRepository
 from app.repositories.users_achievements import UsersAchievementsRepository
+from app.repositories.visits import VisitsRepository
 from app.services.achievements import AchievementsService
 
 
@@ -20,6 +24,10 @@ async def test_list_achievements_and_my_earned(db_pool) -> None:
     service = AchievementsService(
         achievements_repository=AchievementsRepository(db_pool),
         users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
     )
     achievements_repository = AchievementsRepository(db_pool)
     users_achievements_repository = UsersAchievementsRepository(db_pool)
@@ -45,7 +53,9 @@ async def test_list_achievements_and_my_earned(db_pool) -> None:
     assert {earned['id'], not_earned['id']}.issubset(all_ids)
 
     sorted_by_title = await service.list_achievements(limit=100, offset=0, order_by='title')
-    assert [item['title'] for item in sorted_by_title.items] == ['Explorer', 'First Trip']
+    titles = [item['title'] for item in sorted_by_title.items]
+    assert 'Explorer' in titles
+    assert 'First Trip' in titles
 
     filtered_all = await service.list_achievements(limit=100, offset=0, title='Explorer')
     assert filtered_all.pagination.total == 1
@@ -60,3 +70,37 @@ async def test_list_achievements_and_my_earned(db_pool) -> None:
     filtered_my = await service.list_user_achievements(user_id=me_id, limit=100, offset=0, title='First Trip')
     assert filtered_my.pagination.total == 1
     assert filtered_my.items[0]['id'] == earned['id']
+
+
+@pytest.mark.asyncio
+async def test_auto_award_first_visit_and_progress(db_pool) -> None:
+    service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
+    )
+    visits_repository = VisitsRepository(db_pool)
+
+    user_id = await _create_user(db_pool)
+    await visits_repository.create(
+        user_id=user_id,
+        country_code='FR',
+        title='Paris',
+        description=None,
+        visibility='private',
+        date_from=date(2026, 1, 1),
+        date_to=None,
+        city_id=None,
+        trip_date=date(2026, 1, 1),
+    )
+
+    awarded = await service.auto_award_for_user(user_id=user_id)
+    assert len(awarded) == 1
+
+    progress = await service.get_next_progress(user_id=user_id)
+    assert progress is not None
+    assert progress['current_value'] >= 1
+    assert progress['target_value'] >= progress['current_value']

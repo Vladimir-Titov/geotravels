@@ -12,6 +12,13 @@ from sqlalchemy import create_engine
 
 from app.models.tables import metadata
 from app.repositories.countries import CountriesRepository
+from app.repositories.achievements import AchievementsRepository
+from app.repositories.files import FilesRepository
+from app.repositories.followers import FollowersRepository
+from app.repositories.users import UsersRepository
+from app.repositories.users_achievements import UsersAchievementsRepository
+from app.repositories.visits import VisitsRepository
+from app.services.achievements import AchievementsService
 from helpers import create_db_pool_from_settings
 from settings import AppSettings, to_sync_database_url
 
@@ -96,6 +103,24 @@ def run_init_db() -> None:
     print('Database schema initialized with SQLAlchemy metadata')
 
 
+def run_backfill_achievements() -> None:
+    settings = AppSettings()
+    db_pool = asyncio.run(create_db_pool_from_settings(settings))
+    service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
+    )
+    try:
+        awarded = asyncio.run(service.backfill_all_users())
+    finally:
+        asyncio.run(db_pool.close())
+    print(f'Backfill completed, awarded {awarded} achievements')
+
+
 @click.group(help='geotravels management commands')
 def cli() -> None:
     pass
@@ -128,6 +153,11 @@ def seed_countries_command() -> None:
 @cli.command(name='init-db', help='Create DB tables without migrations')
 def init_db_command() -> None:
     run_init_db()
+
+
+@cli.command(name='backfill-achievements', help='Backfill achievements for existing users')
+def backfill_achievements_command() -> None:
+    run_backfill_achievements()
 
 
 def main() -> None:

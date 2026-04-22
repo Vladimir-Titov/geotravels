@@ -9,6 +9,10 @@ from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
+from app.repositories.achievements import AchievementsRepository
+from app.repositories.followers import FollowersRepository
+from app.repositories.users_achievements import UsersAchievementsRepository
+from app.services.achievements import AchievementsService
 from app.services.exceptions import NotFoundError
 from app.services.visits import VisitsService
 
@@ -21,10 +25,19 @@ async def _create_user(db_pool) -> UUID:
 @pytest.mark.asyncio
 async def test_visit_crud_for_current_user(db_pool) -> None:
     user_id = await _create_user(db_pool)
+    achievements_service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
+    )
     service = VisitsService(
         visits_repository=VisitsRepository(db_pool),
         visits_cities_repository=VisitsCitiesRepository(db_pool),
         files_repository=FilesRepository(db_pool),
+        achievements_service=achievements_service,
     )
 
     created = await service.create_visit(
@@ -60,10 +73,19 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
 async def test_visit_scope_isolated_by_user(db_pool) -> None:
     owner_id = await _create_user(db_pool)
     stranger_id = await _create_user(db_pool)
+    achievements_service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
+    )
     service = VisitsService(
         visits_repository=VisitsRepository(db_pool),
         visits_cities_repository=VisitsCitiesRepository(db_pool),
         files_repository=FilesRepository(db_pool),
+        achievements_service=achievements_service,
     )
 
     created = await service.create_visit(

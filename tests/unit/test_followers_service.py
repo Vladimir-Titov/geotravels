@@ -6,7 +6,12 @@ import pytest
 import pytest_asyncio
 
 from app.repositories.followers import FollowersRepository
+from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository
+from app.repositories.achievements import AchievementsRepository
+from app.repositories.users_achievements import UsersAchievementsRepository
+from app.repositories.visits import VisitsRepository
+from app.services.achievements import AchievementsService
 from app.services.exceptions import ConflictError, NotFoundError, ServiceError
 from app.services.followers import FollowersService
 
@@ -18,9 +23,18 @@ async def _create_user(db_pool) -> UUID:
 
 @pytest_asyncio.fixture
 async def followers_service(db_pool) -> FollowersService:
+    achievements_service = AchievementsService(
+        achievements_repository=AchievementsRepository(db_pool),
+        users_achievements_repository=UsersAchievementsRepository(db_pool),
+        visits_repository=VisitsRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+        followers_repository=FollowersRepository(db_pool),
+        users_repository=UsersRepository(db_pool),
+    )
     return FollowersService(
         followers_repository=FollowersRepository(db_pool),
         users_repository=UsersRepository(db_pool),
+        achievements_service=achievements_service,
     )
 
 

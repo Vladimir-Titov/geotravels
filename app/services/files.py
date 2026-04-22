@@ -7,6 +7,7 @@ from uuid import UUID, uuid7
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
+from app.services.achievements import AchievementsService
 from app.services.exceptions import NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
 
@@ -19,10 +20,12 @@ class FilesService:
         files_repository: FilesRepository,
         visits_repository: VisitsRepository,
         file_storage: FileStorage,
+        achievements_service: AchievementsService,
     ):
         self.files_repository = files_repository
         self.visits_repository = visits_repository
         self.file_storage = file_storage
+        self.achievements_service = achievements_service
 
     def _normalize_filename(self, filename: str | None) -> str:
         candidate = (filename or 'photo.jpg').strip()
@@ -89,6 +92,7 @@ class FilesService:
         created = await self.files_repository.get_owned_file(file_id=file_row['id'], user_id=user_id)
         if not created:
             raise RuntimeError('File has been created but relation is missing')
+        await self.achievements_service.auto_award_for_user(user_id=user_id)
         return created
 
     async def update_filename(self, file_id: UUID, user_id: UUID, filename: str) -> dict:

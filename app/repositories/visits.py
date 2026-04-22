@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID, uuid7
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.tables import visits
 from app.repositories.base import BaseEntityDBRepository
@@ -48,6 +48,23 @@ class VisitsRepository(BaseEntityDBRepository):
         )
         rows = await self.fetch(query)
         return [str(row['country_code']) for row in rows]
+
+    async def count_by_user(self, user_id: UUID) -> int:
+        query = select(func.count()).select_from(visits).where(visits.c.user_id == user_id)
+        value = await self.fetchval(query)
+        return int(value or 0)
+
+    async def count_public_by_user(self, user_id: UUID) -> int:
+        query = (
+            select(func.count())
+            .select_from(visits)
+            .where(
+                visits.c.user_id == user_id,
+                visits.c.visibility == 'public',
+            )
+        )
+        value = await self.fetchval(query)
+        return int(value or 0)
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(row.get('id'), str):

@@ -6,6 +6,7 @@ from uuid import UUID
 from app.repositories.base import PaginatedResponse, RowNotFoundError
 from app.repositories.followers import FollowersRepository
 from app.repositories.users import UsersRepository
+from app.services.achievements import AchievementsService
 from app.services.exceptions import ConflictError, NotFoundError, ServiceError
 
 
@@ -14,9 +15,11 @@ class FollowersService:
         self,
         followers_repository: FollowersRepository,
         users_repository: UsersRepository,
+        achievements_service: AchievementsService,
     ):
         self.followers_repository = followers_repository
         self.users_repository = users_repository
+        self.achievements_service = achievements_service
 
     async def subscribe(self, follower_id: UUID, following_id: UUID) -> dict[str, Any]:
         if follower_id == following_id:
@@ -25,10 +28,12 @@ class FollowersService:
         await self._ensure_user_exists(user_id=following_id)
 
         try:
-            return await self.followers_repository.create(
+            relation = await self.followers_repository.create(
                 follower_id=follower_id,
                 following_id=following_id,
             )
+            await self.achievements_service.auto_award_for_user(user_id=following_id)
+            return relation
         except Exception as exc:  # noqa: BLE001
             # Duplicate follow can happen under concurrent requests.
             existing_relation = await self.followers_repository.get_relation(

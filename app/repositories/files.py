@@ -231,6 +231,11 @@ class FilesRepository(BaseDBRepository):
         total = await self.fetchval(query)
         return int(total or 0)
 
+    async def count_files_by_user(self, user_id: UUID) -> int:
+        query = select(func.count()).select_from(files_visits).where(files_visits.c.user_id == user_id)
+        total = await self.fetchval(query)
+        return int(total or 0)
+
     async def delete_file(self, file_id: UUID) -> bool:
         query = select(files.c.id).where(files.c.id == file_id)
         row = await self.fetchrow(query)

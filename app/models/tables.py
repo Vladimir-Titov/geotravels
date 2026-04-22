@@ -146,6 +146,7 @@ users_achievements = Table(
     Column('complete_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Index('idx_users_achievements_user_id', 'user_id'),
     Index('idx_users_achievements_achievements_id', 'achievements_id'),
+    Index('idx_users_achievements_user_achievement_unique', 'user_id', 'achievements_id', unique=True),
 )
 
 files = Table(

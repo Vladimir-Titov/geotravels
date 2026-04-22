@@ -8,6 +8,7 @@ from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
+from app.services.achievements import AchievementsService
 from app.services.exceptions import NotFoundError, ServiceError
 
 
@@ -27,10 +28,12 @@ class VisitsService:
         visits_repository: VisitsRepository,
         visits_cities_repository: VisitsCitiesRepository,
         files_repository: FilesRepository,
+        achievements_service: AchievementsService,
     ):
         self.visits_repository = visits_repository
         self.visits_cities_repository = visits_cities_repository
         self.files_repository = files_repository
+        self.achievements_service = achievements_service
 
     def _normalize_title(self, title: str | None) -> str:
         if title is None:
@@ -185,7 +188,9 @@ class VisitsService:
                     user_id=user_id,
                 )
 
-        return await self._enrich_visit(created)
+        enriched = await self._enrich_visit(created)
+        await self.achievements_service.auto_award_for_user(user_id=user_id)
+        return enriched
 
     async def list_visits(self, user_id: UUID, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
         response = await self.visits_repository.paginated_search(
@@ -274,7 +279,9 @@ class VisitsService:
                         user_id=user_id,
                     )
 
-        return await self._enrich_visit(updated)
+        enriched = await self._enrich_visit(updated)
+        await self.achievements_service.auto_award_for_user(user_id=user_id)
+        return enriched
 
     async def delete_visit_by_id(self, visit_id: UUID, user_id: UUID) -> None:
         await self._get_visit_or_raise(visit_id=visit_id, user_id=user_id)

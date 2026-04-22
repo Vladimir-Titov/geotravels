@@ -464,9 +464,20 @@ class EarnedAchievementResponse(AchievementResponse):
     complete_at: datetime
 
 
+class NextAchievementProgressResponse(BaseModel):
+    achievement_id: UUID | None
+    achievement_title: str
+    achievement_description: str
+    metric: str
+    current_value: int
+    target_value: int
+    progress_percent: int
+
+
 class EarnedAchievementsListResponse(BaseModel):
     items: list[EarnedAchievementResponse]
     pagination: PaginationResponse
+    next_progress: NextAchievementProgressResponse | None = None
 
 
 VisitVisibility = Literal['private', 'followers', 'public']

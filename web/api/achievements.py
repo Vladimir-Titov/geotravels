@@ -50,10 +50,11 @@ async def list_my_achievements(
     filters: UserAchievementsListRequest,
 ) -> EarnedAchievementsListResponse:
     repo_filters = filters.to_repo_filters()
-    data = await achievements_service.list_user_achievements(
+    summary = await achievements_service.get_user_achievements_with_progress(
         user_id=current_user.id,
         **repo_filters,
     )
+    data = summary['achievements']
     return EarnedAchievementsListResponse(
         items=[EarnedAchievementResponse(**item) for item in data.items],
         pagination=PaginationResponse(
@@ -61,6 +62,7 @@ async def list_my_achievements(
             offset=data.pagination.offset,
             total=data.pagination.total,
         ),
+        next_progress=summary['next_progress'],
     )
 
 
