@@ -5,7 +5,14 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
 
-from app.models.tables import achievements, cities, users_achievements
+from app.models.tables import (
+    CheckListStatus,
+    VisitStatus,
+    VisitVisibility,
+    achievements,
+    cities,
+    users_achievements,
+)
 from app.services.geonames import GeoNamesClient
 from app.services.visits import VisitsService
 from settings import to_sync_database_url
@@ -37,6 +44,33 @@ def _get_user_id_by_email(client, auth_headers: dict[str, str], email: str) -> s
 
 def _auth_headers(tokens: dict) -> dict[str, str]:
     return {'Authorization': f'Bearer {tokens["access_token"]}'}
+
+
+def _create_visit(client, auth_headers: dict[str, str], **payload) -> dict:
+    response = client.post('/api/v1/visits', headers=auth_headers, json=payload)
+    assert response.status_code == 201
+    return response.json()
+
+
+def _upload_file_for_visit(
+    client,
+    auth_headers: dict[str, str],
+    visit_id: str,
+    filename: str,
+    content: bytes,
+    is_private: bool = False,
+) -> dict:
+    response = client.post(
+        '/api/v1/files',
+        headers=auth_headers,
+        data={
+            'visit_id': visit_id,
+            'is_private': is_private,
+        },
+        files={'file': (filename, content, 'image/jpeg')},
+    )
+    assert response.status_code == 201
+    return response.json()
 
 
 def _prepare_followers_context(client, settings) -> dict[str, str]:
@@ -112,7 +146,7 @@ def test_auth_and_visit_flow(client, settings) -> None:
     create_response = client.post(
         '/api/v1/visits',
         headers=auth_headers,
-        json={'country_code': 'FR', 'trip_date': '2024-06-01'},
+        json={'country_code': 'FR', 'date_from': '2024-06-01'},
     )
     assert create_response.status_code == 201
     visit_id = create_response.json()['id']
@@ -130,10 +164,11 @@ def test_auth_and_visit_flow(client, settings) -> None:
     patch_response = client.patch(
         f'/api/v1/visits/{visit_id}',
         headers=auth_headers,
-        json={'trip_date': '2024-07-01'},
+        json={'date_from': '2024-07-01', 'status': VisitStatus.PLANNED},
     )
     assert patch_response.status_code == 200
-    assert patch_response.json()['trip_date'] == '2024-07-01'
+    assert patch_response.json()['date_from'] == '2024-07-01'
+    assert patch_response.json()['status'] == VisitStatus.PLANNED
 
     delete_response = client.delete(f'/api/v1/visits/{visit_id}', headers=auth_headers)
     assert delete_response.status_code in {200, 204}
@@ -188,7 +223,7 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
             'country_code': 'FR',
             'title': 'France spring story',
             'description': 'Paris and Lyon',
-            'visibility': 'followers',
+            'visibility': VisitVisibility.FOLLOWERS,
             'date_from': '2025-03-10',
             'date_to': '2025-03-15',
             'city_ids': [str(paris_id), str(lyon_id)],
@@ -200,12 +235,12 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
 
     assert created_visit['title'] == 'France spring story'
     assert created_visit['description'] == 'Paris and Lyon'
-    assert created_visit['visibility'] == 'followers'
+    assert created_visit['visibility'] == VisitVisibility.FOLLOWERS
+    assert created_visit['status'] == VisitStatus.VISITED
     assert created_visit['date_from'] == '2025-03-10'
     assert created_visit['date_to'] == '2025-03-15'
     assert created_visit['city_ids'] == [str(paris_id), str(lyon_id)]
     assert created_visit['city_id'] == str(paris_id)
-    assert created_visit['trip_date'] == '2025-03-10'
     assert created_visit['cover_file_id'] is None
 
     upload_cover_response = client.post(
@@ -225,11 +260,11 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     set_cover_response = client.patch(
         f'/api/v1/visits/{visit_id}',
         headers=auth_headers,
-        json={'cover_file_id': cover_file_id, 'visibility': 'public'},
+        json={'cover_file_id': cover_file_id, 'visibility': VisitVisibility.PUBLIC},
     )
     assert set_cover_response.status_code == 200
     assert set_cover_response.json()['cover_file_id'] == cover_file_id
-    assert set_cover_response.json()['visibility'] == 'public'
+    assert set_cover_response.json()['visibility'] == VisitVisibility.PUBLIC
 
     covered_files_response = client.get(
         f'/api/v1/files/mine?limit=10&offset=0&visit_id={visit_id}',
@@ -246,7 +281,7 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     loaded = get_response.json()
     assert loaded['city_ids'] == [str(paris_id), str(lyon_id)]
     assert loaded['cover_file_id'] == cover_file_id
-    assert loaded['visibility'] == 'public'
+    assert loaded['visibility'] == VisitVisibility.PUBLIC
 
     list_response = client.get('/api/v1/visits?limit=10&offset=0', headers=auth_headers)
     assert list_response.status_code == 200
@@ -302,6 +337,289 @@ def test_visits_are_user_scoped(client, settings) -> None:
     assert delete_response.status_code == 404
 
 
+def test_visits_status_filters_and_trip_date_payload_is_rejected(client, settings) -> None:
+    tokens = _get_tokens(client, 'visit-status@example.com', settings.otp.otp_mock_code)
+    auth_headers = _auth_headers(tokens)
+
+    created = _create_visit(
+        client,
+        auth_headers,
+        country_code='FR',
+        status=VisitStatus.IN_TRIP,
+        date_from='2025-05-01',
+    )
+    assert created['status'] == VisitStatus.IN_TRIP
+
+    filtered = client.get(
+        f'/api/v1/visits?limit=10&offset=0&status={VisitStatus.IN_TRIP}',
+        headers=auth_headers,
+    )
+    assert filtered.status_code == 200
+    filtered_payload = filtered.json()
+    assert filtered_payload['pagination']['total'] == 1
+    assert filtered_payload['items'][0]['id'] == created['id']
+
+    rejected_create = client.post(
+        '/api/v1/visits',
+        headers=auth_headers,
+        json={'country_code': 'FR', 'trip_date': '2025-05-02'},
+    )
+    assert rejected_create.status_code == 400
+
+    rejected_patch = client.patch(
+        f'/api/v1/visits/{created["id"]}',
+        headers=auth_headers,
+        json={'trip_date': '2025-05-03'},
+    )
+    assert rejected_patch.status_code == 400
+
+
+def test_visits_checklist_crud(client, settings) -> None:
+    owner_tokens = _get_tokens(client, 'checklist-owner@example.com', settings.otp.otp_mock_code)
+    stranger_tokens = _get_tokens(client, 'checklist-stranger@example.com', settings.otp.otp_mock_code)
+    owner_headers = _auth_headers(owner_tokens)
+    stranger_headers = _auth_headers(stranger_tokens)
+
+    visit = _create_visit(client, owner_headers, country_code='FR')
+
+    assert client.get('/api/v1/visits/checklist?limit=10&offset=0').status_code == 401
+
+    created = client.post(
+        '/api/v1/visits/checklist',
+        headers=owner_headers,
+        json={'visit_id': visit['id'], 'content': '  Pack passport  '},
+    )
+    assert created.status_code == 201
+    created_payload = created.json()
+    checklist_id = created_payload['id']
+    assert created_payload['content'] == 'Pack passport'
+    assert created_payload['status'] == CheckListStatus.TO_DO
+
+    loaded = client.get(f'/api/v1/visits/checklist/{checklist_id}', headers=owner_headers)
+    assert loaded.status_code == 200
+    assert loaded.json()['id'] == checklist_id
+
+    listed = client.get(
+        f'/api/v1/visits/checklist?limit=10&offset=0&visit_id={visit["id"]}&status=to_do',
+        headers=owner_headers,
+    )
+    assert listed.status_code == 200
+    listed_payload = listed.json()
+    assert listed_payload['pagination']['total'] == 1
+    assert listed_payload['items'][0]['id'] == checklist_id
+
+    updated = client.patch(
+        f'/api/v1/visits/checklist/{checklist_id}',
+        headers=owner_headers,
+        json={'content': '  Passport ready  ', 'status': CheckListStatus.DONE},
+    )
+    assert updated.status_code == 200
+    updated_payload = updated.json()
+    assert updated_payload['content'] == 'Passport ready'
+    assert updated_payload['status'] == CheckListStatus.DONE
+
+    empty_patch = client.patch(
+        f'/api/v1/visits/checklist/{checklist_id}',
+        headers=owner_headers,
+        json={},
+    )
+    assert empty_patch.status_code == 400
+
+    assert client.get(f'/api/v1/visits/checklist/{checklist_id}', headers=stranger_headers).status_code == 404
+
+    foreign_create = client.post(
+        '/api/v1/visits/checklist',
+        headers=stranger_headers,
+        json={'visit_id': visit['id'], 'content': 'Should fail'},
+    )
+    assert foreign_create.status_code == 404
+
+    deleted = client.delete(f'/api/v1/visits/checklist/{checklist_id}', headers=owner_headers)
+    assert deleted.status_code == 204
+
+    after_delete = client.get('/api/v1/visits/checklist?limit=10&offset=0', headers=owner_headers)
+    assert after_delete.status_code == 200
+    assert after_delete.json()['pagination']['total'] == 0
+
+
+def test_visits_places_crud_and_duplicate_validation(client, settings) -> None:
+    owner_tokens = _get_tokens(client, 'places-owner@example.com', settings.otp.otp_mock_code)
+    stranger_tokens = _get_tokens(client, 'places-stranger@example.com', settings.otp.otp_mock_code)
+    owner_headers = _auth_headers(owner_tokens)
+    stranger_headers = _auth_headers(stranger_tokens)
+
+    visit = _create_visit(client, owner_headers, country_code='IT')
+
+    assert client.get('/api/v1/visits/places?limit=10&offset=0').status_code == 401
+
+    created = client.post(
+        '/api/v1/visits/places',
+        headers=owner_headers,
+        json={'visit_id': visit['id'], 'title': '  Trevi Fountain  '},
+    )
+    assert created.status_code == 201
+    created_payload = created.json()
+    place_id = created_payload['id']
+    assert created_payload['title'] == 'Trevi Fountain'
+    assert created_payload['is_visited'] is False
+
+    duplicate = client.post(
+        '/api/v1/visits/places',
+        headers=owner_headers,
+        json={'visit_id': visit['id'], 'title': 'Trevi Fountain'},
+    )
+    assert duplicate.status_code == 409
+
+    listed = client.get(
+        f'/api/v1/visits/places?limit=10&offset=0&visit_id={visit["id"]}&is_visited=false',
+        headers=owner_headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json()['pagination']['total'] == 1
+
+    updated = client.patch(
+        f'/api/v1/visits/places/{place_id}',
+        headers=owner_headers,
+        json={'title': 'Trevi Fountain at Night', 'is_visited': True},
+    )
+    assert updated.status_code == 200
+    updated_payload = updated.json()
+    assert updated_payload['title'] == 'Trevi Fountain at Night'
+    assert updated_payload['is_visited'] is True
+
+    empty_patch = client.patch(
+        f'/api/v1/visits/places/{place_id}',
+        headers=owner_headers,
+        json={},
+    )
+    assert empty_patch.status_code == 400
+
+    assert client.get(f'/api/v1/visits/places/{place_id}', headers=stranger_headers).status_code == 404
+
+    deleted = client.delete(f'/api/v1/visits/places/{place_id}', headers=owner_headers)
+    assert deleted.status_code == 204
+
+    after_delete = client.get('/api/v1/visits/places?limit=10&offset=0', headers=owner_headers)
+    assert after_delete.status_code == 200
+    assert after_delete.json()['pagination']['total'] == 0
+
+
+def test_visits_places_files_crud_and_constraints(client, settings) -> None:
+    owner_tokens = _get_tokens(client, 'place-files-owner@example.com', settings.otp.otp_mock_code)
+    stranger_tokens = _get_tokens(client, 'place-files-stranger@example.com', settings.otp.otp_mock_code)
+    owner_headers = _auth_headers(owner_tokens)
+    stranger_headers = _auth_headers(stranger_tokens)
+
+    owner_visit = _create_visit(client, owner_headers, country_code='FR')
+    second_owner_visit = _create_visit(client, owner_headers, country_code='IT')
+    stranger_visit = _create_visit(client, stranger_headers, country_code='DE')
+
+    place_response = client.post(
+        '/api/v1/visits/places',
+        headers=owner_headers,
+        json={'visit_id': owner_visit['id'], 'title': 'Louvre'},
+    )
+    assert place_response.status_code == 201
+    place_id = place_response.json()['id']
+    stranger_place_response = client.post(
+        '/api/v1/visits/places',
+        headers=stranger_headers,
+        json={'visit_id': stranger_visit['id'], 'title': 'Brandenburg Gate'},
+    )
+    assert stranger_place_response.status_code == 201
+    stranger_place_id = stranger_place_response.json()['id']
+
+    owner_file = _upload_file_for_visit(
+        client,
+        owner_headers,
+        owner_visit['id'],
+        'owner-place.jpg',
+        b'owner-place-bytes',
+    )
+    foreign_visit_file = _upload_file_for_visit(
+        client,
+        owner_headers,
+        second_owner_visit['id'],
+        'other-visit.jpg',
+        b'other-visit-bytes',
+    )
+    stranger_file = _upload_file_for_visit(
+        client,
+        stranger_headers,
+        stranger_visit['id'],
+        'stranger.jpg',
+        b'stranger-bytes',
+    )
+
+    assert client.get('/api/v1/visits/places-files?limit=10&offset=0').status_code == 401
+
+    created = client.post(
+        '/api/v1/visits/places-files',
+        headers=owner_headers,
+        json={'visit_place_id': place_id, 'file_id': owner_file['id']},
+    )
+    assert created.status_code == 201
+    relation_id = created.json()['id']
+
+    duplicate = client.post(
+        '/api/v1/visits/places-files',
+        headers=owner_headers,
+        json={'visit_place_id': place_id, 'file_id': owner_file['id']},
+    )
+    assert duplicate.status_code == 409
+
+    listed = client.get(
+        f'/api/v1/visits/places-files?limit=10&offset=0&visit_place_id={place_id}',
+        headers=owner_headers,
+    )
+    assert listed.status_code == 200
+    listed_payload = listed.json()
+    assert listed_payload['pagination']['total'] == 1
+    assert listed_payload['items'][0]['id'] == relation_id
+
+    loaded = client.get(f'/api/v1/visits/places-files/{relation_id}', headers=owner_headers)
+    assert loaded.status_code == 200
+    assert loaded.json()['file_id'] == owner_file['id']
+
+    cross_visit = client.post(
+        '/api/v1/visits/places-files',
+        headers=owner_headers,
+        json={'visit_place_id': place_id, 'file_id': foreign_visit_file['id']},
+    )
+    assert cross_visit.status_code == 400
+
+    foreign_place = client.post(
+        '/api/v1/visits/places-files',
+        headers=owner_headers,
+        json={'visit_place_id': stranger_place_id, 'file_id': owner_file['id']},
+    )
+    assert foreign_place.status_code == 404
+
+    foreign_file = client.post(
+        '/api/v1/visits/places-files',
+        headers=owner_headers,
+        json={'visit_place_id': place_id, 'file_id': stranger_file['id']},
+    )
+    assert foreign_file.status_code == 404
+
+    assert client.get(f'/api/v1/visits/places-files/{relation_id}', headers=stranger_headers).status_code == 404
+
+    deleted = client.delete(f'/api/v1/visits/places-files/{relation_id}', headers=owner_headers)
+    assert deleted.status_code == 204
+
+    mine_after_delete = client.get(
+        f'/api/v1/files/mine?limit=10&offset=0&visit_id={owner_visit["id"]}',
+        headers=owner_headers,
+    )
+    assert mine_after_delete.status_code == 200
+    assert mine_after_delete.json()['pagination']['total'] == 1
+    assert mine_after_delete.json()['items'][0]['id'] == owner_file['id']
+
+    download_after_delete = client.get(f'/api/v1/files/{owner_file["id"]}/download', headers=owner_headers)
+    assert download_after_delete.status_code == 200
+    assert download_after_delete.content == b'owner-place-bytes'
+
+
 def test_files_crud_for_owner(client, settings) -> None:
     tokens = _get_tokens(client, 'files-owner@example.com', settings.otp.otp_mock_code)
     auth_headers = _auth_headers(tokens)
@@ -324,7 +642,7 @@ def test_files_crud_for_owner(client, settings) -> None:
     assert created_file['visit_id'] == visit_id
     assert created_file['filename'] == 'paris.jpg'
 
-    download_response = client.get(f"/api/v1/files/{created_file['id']}/download", headers=auth_headers)
+    download_response = client.get(f'/api/v1/files/{created_file["id"]}/download', headers=auth_headers)
     assert download_response.status_code == 200
     assert download_response.content == b'fake-image-content'
     assert download_response.headers['content-type'] == 'image/jpeg'
@@ -337,14 +655,14 @@ def test_files_crud_for_owner(client, settings) -> None:
     assert mine_payload['items'][0]['id'] == created_file['id']
 
     update_response = client.patch(
-        f"/api/v1/files/{created_file['id']}",
+        f'/api/v1/files/{created_file["id"]}',
         headers=auth_headers,
         json={'filename': 'eiffel.jpg'},
     )
     assert update_response.status_code == 200
     assert update_response.json()['filename'] == 'eiffel.jpg'
 
-    delete_response = client.delete(f"/api/v1/files/{created_file['id']}", headers=auth_headers)
+    delete_response = client.delete(f'/api/v1/files/{created_file["id"]}', headers=auth_headers)
     assert delete_response.status_code == 200
 
     after_delete = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)

@@ -13,6 +13,7 @@ from uuid import UUID
 
 import arrow
 
+from app.models.tables import OtpRequestStatus
 from app.repositories import RowNotFoundError
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
@@ -63,12 +64,12 @@ class AuthService:
                     contact=contact,
                     code_hash=code_hash,
                     expires_at=expires_at,
-                    status='sent',
+                    status=OtpRequestStatus.SENT,
                 )
             try:
                 await self.otp_sender.send(contact=contact, code=code)
             except Exception:  # noqa: BLE001
-                await self.otp_requests_repository.update_status(record['id'], 'failed')
+                await self.otp_requests_repository.update_status(record['id'], OtpRequestStatus.FAILED)
                 raise
         except CountdownError:
             raise
@@ -89,7 +90,7 @@ class AuthService:
             except RowNotFoundError as exc:
                 raise AuthenticationError('Invalid or expired OTP') from exc
 
-            if record['status'] != 'sent':
+            if record['status'] != OtpRequestStatus.SENT:
                 raise AuthenticationError('Invalid or expired OTP')
 
             if arrow.get(record['expires_at']) <= arrow.utcnow():
@@ -106,7 +107,7 @@ class AuthService:
                 user = await self.users_repository.get_by_email(record['contact'])
                 if not user:
                     user = await self.users_repository.create(email=record['contact'])
-                await self.otp_requests_repository.update_status(otp_id, 'done')
+                await self.otp_requests_repository.update_status(otp_id, OtpRequestStatus.DONE)
 
         if invalid_code:
             raise AuthenticationError('Invalid code')

@@ -8,6 +8,9 @@ from web.api.healthcheck import healthcheck_router
 from web.api.me import me_router
 from web.api.users import users_router
 from web.api.visits import visits_router
+from web.api.visits_checklist import visits_checklist_router
+from web.api.visits_places import visits_places_router
+from web.api.visits_places_files import visits_places_files_router
 
 __all__ = [
     'auth_router',
@@ -19,5 +22,8 @@ __all__ = [
     'me_router',
     'users_router',
     'visits_router',
+    'visits_checklist_router',
+    'visits_places_router',
+    'visits_places_files_router',
     'healthcheck_router',
 ]

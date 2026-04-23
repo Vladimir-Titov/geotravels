@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.models.tables import VisitStatus
 from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
@@ -31,9 +32,10 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
         user_id=user_id,
         country_code='FR',
         city_id=None,
-        trip_date=date(2025, 1, 2),
+        date_from=date(2025, 1, 2),
     )
     assert created['country_code'] == 'FR'
+    assert created['status'] == VisitStatus.VISITED
 
     listed = await service.list_visits(user_id=user_id, limit=100, offset=0)
     assert len(listed.items) == 1
@@ -45,9 +47,11 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
     updated = await service.update_visit_by_id(
         visit_id=created['id'],
         user_id=user_id,
-        trip_date=date(2025, 1, 3),
+        date_from=date(2025, 1, 3),
+        status=VisitStatus.PLANNED,
     )
-    assert updated['trip_date'] == date(2025, 1, 3)
+    assert updated['date_from'] == date(2025, 1, 3)
+    assert updated['status'] == VisitStatus.PLANNED
 
     await service.delete_visit_by_id(visit_id=created['id'], user_id=user_id)
 
@@ -70,7 +74,7 @@ async def test_visit_scope_isolated_by_user(db_pool) -> None:
         user_id=owner_id,
         country_code='FR',
         city_id=None,
-        trip_date=None,
+        date_from=None,
     )
 
     with pytest.raises(NotFoundError):

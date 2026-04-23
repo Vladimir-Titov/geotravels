@@ -24,7 +24,10 @@ from app.repositories import (
     OtpRequestsRepository,
     UsersAchievementsRepository,
     UsersRepository,
+    VisitsChecklistRepository,
     VisitsCitiesRepository,
+    VisitsPlacesFilesRepository,
+    VisitsPlacesRepository,
     VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
@@ -37,6 +40,9 @@ from app.services import (
     FilesService,
     FollowersService,
     UsersService,
+    VisitsChecklistService,
+    VisitsPlacesFilesService,
+    VisitsPlacesService,
     VisitsService,
 )
 from app.services.current_user import CurrentUser
@@ -183,6 +189,28 @@ def create_app(
             files_repository=FilesRepository(db_pool),
         )
 
+    def provide_visits_checklist_service(request: Request) -> VisitsChecklistService:
+        db_pool = request.app.state.db_pool
+        return VisitsChecklistService(
+            visits_checklist_repository=VisitsChecklistRepository(db_pool),
+            visits_repository=VisitsRepository(db_pool),
+        )
+
+    def provide_visits_places_service(request: Request) -> VisitsPlacesService:
+        db_pool = request.app.state.db_pool
+        return VisitsPlacesService(
+            visits_places_repository=VisitsPlacesRepository(db_pool),
+            visits_repository=VisitsRepository(db_pool),
+        )
+
+    def provide_visits_places_files_service(request: Request) -> VisitsPlacesFilesService:
+        db_pool = request.app.state.db_pool
+        return VisitsPlacesFilesService(
+            visits_places_files_repository=VisitsPlacesFilesRepository(db_pool),
+            visits_places_repository=VisitsPlacesRepository(db_pool),
+            files_repository=FilesRepository(db_pool),
+        )
+
     def provide_dashboard_service(request: Request) -> DashboardService:
         dashboard_repository = DashboardRepository(request.app.state.db_pool)
         return DashboardService(dashboard_repository=dashboard_repository)
@@ -259,6 +287,9 @@ def create_app(
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
             'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
+            'visits_checklist_service': Provide(provide_visits_checklist_service, sync_to_thread=False),
+            'visits_places_service': Provide(provide_visits_places_service, sync_to_thread=False),
+            'visits_places_files_service': Provide(provide_visits_places_files_service, sync_to_thread=False),
             'dashboard_service': Provide(provide_dashboard_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
         },

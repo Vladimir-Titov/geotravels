@@ -4,7 +4,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import select
 
-from app.models.tables import visits
+from app.models.tables import VisitStatus, VisitVisibility, visits
 from app.repositories.base import BaseEntityDBRepository
 
 
@@ -17,11 +17,11 @@ class VisitsRepository(BaseEntityDBRepository):
         country_code: str,
         title: str,
         description: str | None,
-        visibility: str,
+        visibility: VisitVisibility,
         date_from: date,
         date_to: date | None,
         city_id: UUID | None,
-        trip_date: date | None,
+        status: VisitStatus,
     ) -> dict[str, Any]:
         return await super().create(
             id=uuid7(),
@@ -33,7 +33,7 @@ class VisitsRepository(BaseEntityDBRepository):
             date_from=date_from,
             date_to=date_to,
             city_id=city_id,
-            trip_date=trip_date,
+            status=status,
         )
 
     async def list_by_user(self, user_id: UUID) -> list[dict[str, Any]]:

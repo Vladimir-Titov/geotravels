@@ -4,6 +4,7 @@ import logging
 import re
 from uuid import UUID, uuid7
 
+from app.models.tables import FileVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
@@ -76,7 +77,7 @@ class FilesService:
                     visit_id=visit_id,
                     user_id=user_id,
                     is_private=is_private,
-                    visibility='private' if is_private else 'public',
+                    visibility=FileVisibility.PRIVATE if is_private else FileVisibility.PUBLIC,
                 )
         except Exception:
             logger.exception('Failed to persist file metadata, rolling back uploaded object')

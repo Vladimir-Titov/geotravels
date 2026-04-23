@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from app.models.tables import otp_requests
+from app.models.tables import OtpRequestStatus, otp_requests
 from app.repositories.base import BaseEntityDBRepository, RowNotFoundError
 
 
@@ -32,5 +32,5 @@ class OtpRequestsRepository(BaseEntityDBRepository):
             raise RowNotFoundError()
         return rows[0]
 
-    async def update_status(self, otp_id: UUID, status: str) -> None:
+    async def update_status(self, otp_id: UUID, status: OtpRequestStatus) -> None:
         return await self.update_by_id(otp_id, status=status)
