@@ -86,7 +86,6 @@ def upgrade() -> None:
         unique=False,
         schema='tripmark',
     )
-    op.create_unique_constraint(None, 'telegram_users', ['telegram_id'], schema='tripmark')
     op.add_column('visits', sa.Column('trip_start', sa.Date(), nullable=True), schema='tripmark')
     op.add_column('visits', sa.Column('trip_end', sa.Date(), nullable=True), schema='tripmark')
     op.add_column(
