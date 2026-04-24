@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.tables import VisitVisibility
 from app.services.dashboard import DashboardService
 
 
@@ -192,7 +193,7 @@ async def test_recap_inbox_and_story_counters_are_stable_placeholders() -> None:
     assert dashboard['inbox_preview']['items'] == []
 
     story = dashboard['recent_stories'][0]
-    assert story['visibility'] == 'private'
+    assert story['visibility'] == VisitVisibility.PRIVATE
     assert story['excerpt'] is None
     assert story['counters'] == {'views': None, 'likes': None, 'comments': None}
     assert story['cover'].startswith('/api/v1/files/')

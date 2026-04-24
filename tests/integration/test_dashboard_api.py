@@ -5,7 +5,7 @@ from uuid import UUID, uuid4, uuid7
 
 from sqlalchemy import create_engine
 
-from app.models.tables import cities, files, files_visits, visits
+from app.models.tables import FileVisibility, VisitVisibility, cities, files, files_visits, visits
 from settings import to_sync_database_url
 
 
@@ -131,7 +131,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'user_id': user_id,
                         'country_code': 'FR',
                         'title': 'Paris story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 1, 10, 8, 0, tzinfo=timezone.utc).date(),
                         'city_id': paris_id,
                         'created': datetime(2025, 1, 10, 8, 0, tzinfo=timezone.utc),
@@ -141,7 +141,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'user_id': user_id,
                         'country_code': 'FR',
                         'title': 'France story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 1, 11, 8, 0, tzinfo=timezone.utc).date(),
                         'city_id': None,
                         'created': datetime(2025, 1, 11, 8, 0, tzinfo=timezone.utc),
@@ -151,7 +151,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'user_id': user_id,
                         'country_code': 'DE',
                         'title': 'Berlin story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 1, 12, 8, 0, tzinfo=timezone.utc).date(),
                         'city_id': berlin_id,
                         'created': datetime(2025, 1, 12, 8, 0, tzinfo=timezone.utc),
@@ -161,7 +161,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'user_id': user_id,
                         'country_code': 'IT',
                         'title': 'Rome story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 1, 13, 8, 0, tzinfo=timezone.utc).date(),
                         'city_id': rome_id,
                         'created': datetime(2025, 1, 13, 8, 0, tzinfo=timezone.utc),
@@ -193,7 +193,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_it_id,
                         'user_id': user_id,
                         'is_private': True,
-                        'visibility': 'private',
+                        'visibility': FileVisibility.PRIVATE,
                         'is_cover': True,
                     },
                     {
@@ -202,7 +202,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_it_id,
                         'user_id': user_id,
                         'is_private': False,
-                        'visibility': 'public',
+                        'visibility': FileVisibility.PUBLIC,
                         'is_cover': False,
                     },
                     {
@@ -211,7 +211,7 @@ def test_dashboard_filled_returns_aggregates_and_recent_limit(client, settings) 
                         'visit_id': visit_fr_no_city_id,
                         'user_id': user_id,
                         'is_private': True,
-                        'visibility': 'private',
+                        'visibility': FileVisibility.PRIVATE,
                         'is_cover': False,
                     },
                 ],
@@ -268,7 +268,7 @@ def test_dashboard_is_strictly_scoped_to_current_user(client, settings) -> None:
                         'user_id': my_user_id,
                         'country_code': 'FR',
                         'title': 'My scope story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 2, 1, 12, 0, tzinfo=timezone.utc).date(),
                         'city_id': None,
                         'created': datetime(2025, 2, 1, 12, 0, tzinfo=timezone.utc),
@@ -278,7 +278,7 @@ def test_dashboard_is_strictly_scoped_to_current_user(client, settings) -> None:
                         'user_id': other_user_id,
                         'country_code': 'DE',
                         'title': 'Other scope story',
-                        'visibility': 'private',
+                        'visibility': VisitVisibility.PRIVATE,
                         'date_from': datetime(2025, 2, 2, 12, 0, tzinfo=timezone.utc).date(),
                         'city_id': None,
                         'created': datetime(2025, 2, 2, 12, 0, tzinfo=timezone.utc),
@@ -301,7 +301,7 @@ def test_dashboard_is_strictly_scoped_to_current_user(client, settings) -> None:
                         'visit_id': my_visit_id,
                         'user_id': my_user_id,
                         'is_private': True,
-                        'visibility': 'private',
+                        'visibility': FileVisibility.PRIVATE,
                     },
                     {
                         'id': uuid7(),
@@ -309,7 +309,7 @@ def test_dashboard_is_strictly_scoped_to_current_user(client, settings) -> None:
                         'visit_id': other_visit_id,
                         'user_id': other_user_id,
                         'is_private': False,
-                        'visibility': 'public',
+                        'visibility': FileVisibility.PUBLIC,
                     },
                 ],
             )

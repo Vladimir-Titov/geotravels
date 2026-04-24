@@ -6,7 +6,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import func, select
 
-from app.models.tables import files, files_visits
+from app.models.tables import FileVisibility, files, files_visits
 from app.repositories.base import BaseDBRepository, PaginatedResponse, Pagination
 
 
@@ -63,7 +63,7 @@ class FilesRepository(BaseDBRepository):
         visit_id: UUID,
         user_id: UUID,
         is_private: bool,
-        visibility: str,
+        visibility: FileVisibility,
         is_cover: bool = False,
     ) -> dict[str, Any]:
         query = (

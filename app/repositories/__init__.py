@@ -15,7 +15,10 @@ from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.users import UsersRepository
 from app.repositories.users_achievements import UsersAchievementsRepository
 from app.repositories.visits import VisitsRepository
+from app.repositories.visits_checklist import VisitsChecklistRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
+from app.repositories.visits_places import VisitsPlacesRepository
+from app.repositories.visits_places_files import VisitsPlacesFilesRepository
 
 __all__ = [
     'BaseDBRepository',
@@ -33,5 +36,8 @@ __all__ = [
     'FollowersRepository',
     'OtpRequestsRepository',
     'VisitsRepository',
+    'VisitsChecklistRepository',
     'VisitsCitiesRepository',
+    'VisitsPlacesRepository',
+    'VisitsPlacesFilesRepository',
 ]

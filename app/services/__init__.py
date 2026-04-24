@@ -8,6 +8,9 @@ from app.services.followers import FollowersService
 from app.services.otp_sender import ResendOTPSender
 from app.services.users import UsersService
 from app.services.visits import VisitsService
+from app.services.visits_checklist import VisitsChecklistService
+from app.services.visits_places import VisitsPlacesService
+from app.services.visits_places_files import VisitsPlacesFilesService
 
 __all__ = [
     'AuthService',
@@ -20,4 +23,7 @@ __all__ = [
     'ResendOTPSender',
     'UsersService',
     'VisitsService',
+    'VisitsChecklistService',
+    'VisitsPlacesService',
+    'VisitsPlacesFilesService',
 ]

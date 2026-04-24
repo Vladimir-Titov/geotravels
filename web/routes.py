@@ -10,6 +10,9 @@ from web.api import (
     healthcheck_router,
     me_router,
     users_router,
+    visits_checklist_router,
+    visits_places_files_router,
+    visits_places_router,
     visits_router,
 )
 
@@ -23,5 +26,8 @@ route_handlers = [
     me_router,
     files_router,
     visits_router,
+    visits_checklist_router,
+    visits_places_router,
+    visits_places_files_router,
     healthcheck_router,
 ]

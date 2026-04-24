@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from app.models.tables import VisitVisibility
 from app.repositories.dashboard import DashboardRepository
 
 
@@ -89,7 +90,7 @@ class DashboardService:
         return {
             'id': row['id'],
             'excerpt': None,
-            'visibility': row.get('visibility') or 'private',
+            'visibility': row.get('visibility') or VisitVisibility.PRIVATE,
             'created_at': row['created'],
             'location': {
                 'country_code': row['country_code'],

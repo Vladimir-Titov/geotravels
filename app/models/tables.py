@@ -1,4 +1,4 @@
-from __future__ import annotations
+from enum import StrEnum
 
 from sqlalchemy import (
     BigInteger,
@@ -20,6 +20,35 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData(schema='tripmark')
+
+
+class VisitStatus(StrEnum):
+    PLANNED = 'planned'
+    IN_TRIP = 'in_trip'
+    VISITED = 'visited'
+
+
+class VisitVisibility(StrEnum):
+    PRIVATE = 'private'
+    FOLLOWERS = 'followers'
+    PUBLIC = 'public'
+
+
+class FileVisibility(StrEnum):
+    PRIVATE = 'private'
+    PUBLIC = 'public'
+
+
+class CheckListStatus(StrEnum):
+    TO_DO = 'to_do'
+    DONE = 'done'
+
+
+class OtpRequestStatus(StrEnum):
+    SENT = 'sent'
+    FAILED = 'failed'
+    DONE = 'done'
+
 
 users = Table(
     'users',
@@ -84,13 +113,55 @@ visits = Table(
     Column('date_from', Date, nullable=False, server_default=func.current_date()),
     Column('date_to', Date, nullable=True),
     Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
-    Column('trip_date', Date, nullable=True),
+    Column('trip_start', Date, nullable=True),
+    Column('trip_end', Date, nullable=True),
+    Column('status', String(length=16), nullable=False, server_default=VisitStatus.VISITED),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
     Index('idx_city_id', 'city_id'),
     Index('idx_visits_visibility', 'visibility'),
+)
+
+visits_checklist = Table(
+    'visits_checklist',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('visit_id', Uuid(as_uuid=True), ForeignKey('visits.id', ondelete='CASCADE'), nullable=False),
+    Column('content', Text, nullable=False),
+    Column('status', String(length=16), nullable=False, server_default=CheckListStatus.TO_DO),
+    Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+    Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+    Index('idx_visits_checklist_visit_id', 'visit_id'),
+)
+
+visits_places = Table(
+    'visits_places',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('visit_id', Uuid(as_uuid=True), ForeignKey('visits.id', ondelete='CASCADE'), nullable=False),
+    Column('title', String(length=255), nullable=False),
+    Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+    Column('is_visited', Boolean, nullable=False, server_default='false'),
+    Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+    Index('idx_visits_places_visit_id', 'visit_id'),
+    Index('idx_visits_places_visit_title_unique', 'visit_id', 'title', unique=True),
+)
+
+visits_places_files = Table(
+    'visits_places_files',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('visit_place_id', Uuid(as_uuid=True), ForeignKey('visits_places.id', ondelete='CASCADE'), nullable=False),
+    Column('file_id', Uuid(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'), nullable=False),
+    Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+    Index('idx_visits_places_files_visit_place_id', 'visit_place_id'),
+    Index('idx_visits_places_files_file_id', 'file_id'),
+    Index('idx_visits_places_files_visit_place_file_unique', 'visit_place_id', 'file_id', unique=True),
 )
 
 visits_cities = Table(
@@ -191,7 +262,7 @@ otp_requests = Table(
     Column('code_hash', String(length=64), nullable=False),
     Column('expires_at', DateTime(timezone=True), nullable=False),
     Column('attempts', Integer(), nullable=False, server_default='0'),
-    Column('status', String(length=20), nullable=False, server_default='sent'),
+    Column('status', String(length=20), nullable=False, server_default=OtpRequestStatus.SENT),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
 )

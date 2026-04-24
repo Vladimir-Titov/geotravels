@@ -6,7 +6,7 @@ from uuid import uuid4
 import arrow
 import pytest
 
-from app.models.tables import users
+from app.models.tables import OtpRequestStatus, users
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
@@ -58,7 +58,7 @@ async def test_request_otp_sender_failure_raises_and_marks_request_failed(db_poo
 
     rows = await repo.search(contact='senderfail@example.com')
     assert len(rows) == 1
-    assert rows[0]['status'] == 'failed'
+    assert rows[0]['status'] == OtpRequestStatus.FAILED
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,7 @@ async def test_verify_otp_expired_raises_authentication_error(db_pool, settings)
         contact='expired@example.com',
         code_hash=hashlib.sha256('123456'.encode()).hexdigest(),
         expires_at=expired_at,
-        status='sent',
+        status=OtpRequestStatus.SENT,
     )
     service = make_service(db_pool, settings)
 
@@ -168,7 +168,7 @@ async def test_verify_otp_marks_record_done_after_success(db_pool, settings) -> 
     await service.verify_otp(otp_id=otp_id, code=settings.otp.otp_mock_code)
 
     record = await repo.get_by_id(otp_id)
-    assert record['status'] == 'done'
+    assert record['status'] == OtpRequestStatus.DONE
 
 
 @pytest.mark.asyncio

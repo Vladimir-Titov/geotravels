@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
+from app.models.tables import VisitStatus, VisitVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
@@ -12,14 +13,13 @@ from app.services.exceptions import NotFoundError, ServiceError
 
 
 class VisitsService:
-    VISIBILITY_PRIVATE = 'private'
-    VISIBILITY_FOLLOWERS = 'followers'
-    VISIBILITY_PUBLIC = 'public'
     DEFAULT_TITLE = 'Untitled story'
-    ALLOWED_VISIBILITIES = {
-        VISIBILITY_PRIVATE,
-        VISIBILITY_FOLLOWERS,
-        VISIBILITY_PUBLIC,
+    DEFAULT_VISIBILITY = VisitVisibility.PRIVATE
+    ALLOWED_VISIBILITIES = set(VisitVisibility)
+    ALLOWED_STATUSES = {
+        VisitStatus.PLANNED,
+        VisitStatus.IN_TRIP,
+        VisitStatus.VISITED,
     }
 
     def __init__(
@@ -43,12 +43,22 @@ class VisitsService:
             raise ServiceError('title is too long, max length is 80')
         return normalized
 
-    def _normalize_visibility(self, visibility: str | None) -> str:
+    def _normalize_visibility(self, visibility: VisitVisibility | None) -> VisitVisibility:
         if visibility is None:
-            return self.VISIBILITY_PRIVATE
+            return self.DEFAULT_VISIBILITY
         if visibility not in self.ALLOWED_VISIBILITIES:
-            raise ServiceError('visibility must be one of: private, followers, public')
+            allowed_visibilities = ', '.join(item.value for item in VisitVisibility)
+            raise ServiceError(f'visibility must be one of: {allowed_visibilities}')
         return visibility
+
+    @staticmethod
+    def _normalize_status(status: VisitStatus | None) -> VisitStatus:
+        if status is None:
+            return VisitStatus.VISITED
+        if status not in VisitsService.ALLOWED_STATUSES:
+            allowed_statuses = ', '.join(item.value for item in VisitStatus)
+            raise ServiceError(f'status must be one of: {allowed_statuses}')
+        return status
 
     @staticmethod
     def _deduplicate_city_ids(city_ids: list[UUID]) -> list[UUID]:
@@ -68,14 +78,6 @@ class VisitsService:
     @staticmethod
     def _resolve_primary_city_id(city_ids: list[UUID]) -> UUID | None:
         return city_ids[0] if city_ids else None
-
-    @staticmethod
-    def _resolve_date_from(date_from: date | None, trip_date: date | None) -> date:
-        return date_from or trip_date or datetime.now(UTC).date()
-
-    @staticmethod
-    def _resolve_trip_date(date_from: date, trip_date: date | None) -> date:
-        return trip_date or date_from
 
     @staticmethod
     def _validate_date_range(date_from: date, date_to: date | None) -> None:
@@ -119,9 +121,9 @@ class VisitsService:
             city_ids = self._deduplicate_city_ids(city_ids)
 
             item['title'] = item.get('title') or self.DEFAULT_TITLE
-            item['visibility'] = item.get('visibility') or self.VISIBILITY_PRIVATE
-            item['date_from'] = item.get('date_from') or item.get('trip_date') or datetime.now(UTC).date()
-            item['trip_date'] = item.get('trip_date') or item['date_from']
+            item['visibility'] = item.get('visibility') or self.DEFAULT_VISIBILITY
+            item['status'] = item.get('status') or VisitStatus.VISITED
+            item['date_from'] = item.get('date_from') or datetime.now(UTC).date()
             item['city_ids'] = city_ids
             item['city_id'] = self._resolve_primary_city_id(city_ids)
             item['cover_file_id'] = cover_file_ids_by_visit.get(item['id'])
@@ -140,18 +142,18 @@ class VisitsService:
         country_code: str,
         title: str | None = None,
         description: str | None = None,
-        visibility: str = VISIBILITY_PRIVATE,
+        visibility: VisitVisibility = VisitVisibility.PRIVATE,
+        status: VisitStatus | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
         city_ids: list[UUID] | None = None,
         cover_file_id: UUID | None = None,
         city_id: UUID | None = None,  # backward compatibility (visit-v1)
-        trip_date: date | None = None,  # backward compatibility (visit-v1)
     ) -> dict[str, Any]:
         resolved_title = self._normalize_title(title)
         resolved_visibility = self._normalize_visibility(visibility)
-        resolved_date_from = self._resolve_date_from(date_from=date_from, trip_date=trip_date)
-        resolved_trip_date = self._resolve_trip_date(date_from=resolved_date_from, trip_date=trip_date)
+        resolved_status = self._normalize_status(status)
+        resolved_date_from = date_from or datetime.now(UTC).date()
         resolved_city_ids = self._resolve_city_ids(city_ids=city_ids, city_id=city_id)
         resolved_city_id = self._resolve_primary_city_id(resolved_city_ids)
 
@@ -167,7 +169,7 @@ class VisitsService:
                 date_from=resolved_date_from,
                 date_to=date_to,
                 city_id=resolved_city_id,
-                trip_date=resolved_trip_date,
+                status=resolved_status,
             )
             await self.visits_cities_repository.replace_cities_for_visit(
                 visit_id=created['id'],
@@ -210,14 +212,12 @@ class VisitsService:
         has_city_ids = 'city_ids' in payload
         has_city_id = 'city_id' in payload
         has_date_from = 'date_from' in payload
-        has_trip_date = 'trip_date' in payload
         has_cover_file_id = 'cover_file_id' in payload
 
         update_payload = dict(payload)
         provided_city_ids = update_payload.pop('city_ids', None)
         provided_city_id = update_payload.pop('city_id', None)
-        provided_date_from = update_payload.pop('date_from', None)
-        provided_trip_date = update_payload.pop('trip_date', None)
+        provided_date_from = update_payload.get('date_from')
         cover_file_id = update_payload.pop('cover_file_id', None) if has_cover_file_id else None
 
         next_city_ids: list[UUID] | None = None
@@ -228,18 +228,16 @@ class VisitsService:
             )
             update_payload['city_id'] = self._resolve_primary_city_id(next_city_ids)
 
-        if has_date_from or has_trip_date:
-            normalized_date_from = provided_date_from if has_date_from else provided_trip_date
-            if normalized_date_from is None:
+        if has_date_from:
+            if provided_date_from is None:
                 raise ServiceError('date_from cannot be empty')
-
-            update_payload['date_from'] = normalized_date_from
-            update_payload['trip_date'] = provided_trip_date if has_trip_date else normalized_date_from
 
         if 'title' in update_payload:
             update_payload['title'] = self._normalize_title(update_payload['title'])
         if 'visibility' in update_payload:
             update_payload['visibility'] = self._normalize_visibility(update_payload['visibility'])
+        if 'status' in update_payload:
+            update_payload['status'] = self._normalize_status(update_payload['status'])
 
         if has_cover_file_id:
             if cover_file_id is not None:
@@ -249,7 +247,7 @@ class VisitsService:
                     user_id=user_id,
                 )
 
-        resulting_date_from = update_payload.get('date_from') or existing.get('date_from') or existing.get('trip_date')
+        resulting_date_from = update_payload.get('date_from') or existing.get('date_from')
         if resulting_date_from is None:
             raise ServiceError('date_from cannot be empty')
         resulting_date_to = update_payload.get('date_to', existing.get('date_to'))

@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from litestar.datastructures import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.tables import CheckListStatus, VisitStatus, VisitVisibility
 
 
 class OtpRequestSchema(BaseModel):
@@ -239,10 +241,15 @@ class VisitsListRequest(BaseListRequest):
     title_like: str | None = field(default=None)
     title_ilike: str | None = field(default=None)
 
-    visibility: str | None = field(default=None)
-    visibility_ne: str | None = field(default=None)
-    visibility_in: list[str] | None = field(default=None)
-    visibility_notin: list[str] | None = field(default=None)
+    visibility: VisitVisibility | None = field(default=None)
+    visibility_ne: VisitVisibility | None = field(default=None)
+    visibility_in: list[VisitVisibility] | None = field(default=None)
+    visibility_notin: list[VisitVisibility] | None = field(default=None)
+
+    status: VisitStatus | None = field(default=None)
+    status_ne: VisitStatus | None = field(default=None)
+    status_in: list[VisitStatus] | None = field(default=None)
+    status_notin: list[VisitStatus] | None = field(default=None)
 
     city_id: UUID | None = field(default=None)
     city_id_ne: UUID | None = field(default=None)
@@ -267,14 +274,121 @@ class VisitsListRequest(BaseListRequest):
     date_to_in: list[date] | None = field(default=None)
     date_to_notin: list[date] | None = field(default=None)
 
-    trip_date: date | None = field(default=None)
-    trip_date_ne: date | None = field(default=None)
-    trip_date_lt: date | None = field(default=None)
-    trip_date_le: date | None = field(default=None)
-    trip_date_gt: date | None = field(default=None)
-    trip_date_ge: date | None = field(default=None)
-    trip_date_in: list[date] | None = field(default=None)
-    trip_date_notin: list[date] | None = field(default=None)
+    created: datetime | None = field(default=None)
+    created_ne: datetime | None = field(default=None)
+    created_lt: datetime | None = field(default=None)
+    created_le: datetime | None = field(default=None)
+    created_gt: datetime | None = field(default=None)
+    created_ge: datetime | None = field(default=None)
+    created_in: list[datetime] | None = field(default=None)
+    created_notin: list[datetime] | None = field(default=None)
+
+    updated: datetime | None = field(default=None)
+    updated_ne: datetime | None = field(default=None)
+    updated_lt: datetime | None = field(default=None)
+    updated_le: datetime | None = field(default=None)
+    updated_gt: datetime | None = field(default=None)
+    updated_ge: datetime | None = field(default=None)
+    updated_in: list[datetime] | None = field(default=None)
+    updated_notin: list[datetime] | None = field(default=None)
+
+
+@dataclass(eq=False)
+class VisitsChecklistListRequest(BaseListRequest):
+    id: UUID | None = field(default=None)
+    id_ne: UUID | None = field(default=None)
+    id_in: list[UUID] | None = field(default=None)
+    id_notin: list[UUID] | None = field(default=None)
+
+    visit_id: UUID | None = field(default=None)
+    visit_id_ne: UUID | None = field(default=None)
+    visit_id_in: list[UUID] | None = field(default=None)
+    visit_id_notin: list[UUID] | None = field(default=None)
+
+    content: str | None = field(default=None)
+    content_ne: str | None = field(default=None)
+    content_like: str | None = field(default=None)
+    content_ilike: str | None = field(default=None)
+
+    status: CheckListStatus | None = field(default=None)
+    status_ne: CheckListStatus | None = field(default=None)
+    status_in: list[CheckListStatus] | None = field(default=None)
+    status_notin: list[CheckListStatus] | None = field(default=None)
+
+    created: datetime | None = field(default=None)
+    created_ne: datetime | None = field(default=None)
+    created_lt: datetime | None = field(default=None)
+    created_le: datetime | None = field(default=None)
+    created_gt: datetime | None = field(default=None)
+    created_ge: datetime | None = field(default=None)
+    created_in: list[datetime] | None = field(default=None)
+    created_notin: list[datetime] | None = field(default=None)
+
+    updated: datetime | None = field(default=None)
+    updated_ne: datetime | None = field(default=None)
+    updated_lt: datetime | None = field(default=None)
+    updated_le: datetime | None = field(default=None)
+    updated_gt: datetime | None = field(default=None)
+    updated_ge: datetime | None = field(default=None)
+    updated_in: list[datetime] | None = field(default=None)
+    updated_notin: list[datetime] | None = field(default=None)
+
+
+@dataclass(eq=False)
+class VisitsPlacesListRequest(BaseListRequest):
+    id: UUID | None = field(default=None)
+    id_ne: UUID | None = field(default=None)
+    id_in: list[UUID] | None = field(default=None)
+    id_notin: list[UUID] | None = field(default=None)
+
+    visit_id: UUID | None = field(default=None)
+    visit_id_ne: UUID | None = field(default=None)
+    visit_id_in: list[UUID] | None = field(default=None)
+    visit_id_notin: list[UUID] | None = field(default=None)
+
+    title: str | None = field(default=None)
+    title_ne: str | None = field(default=None)
+    title_like: str | None = field(default=None)
+    title_ilike: str | None = field(default=None)
+
+    is_visited: bool | None = field(default=None)
+    is_visited_ne: bool | None = field(default=None)
+
+    created: datetime | None = field(default=None)
+    created_ne: datetime | None = field(default=None)
+    created_lt: datetime | None = field(default=None)
+    created_le: datetime | None = field(default=None)
+    created_gt: datetime | None = field(default=None)
+    created_ge: datetime | None = field(default=None)
+    created_in: list[datetime] | None = field(default=None)
+    created_notin: list[datetime] | None = field(default=None)
+
+    updated: datetime | None = field(default=None)
+    updated_ne: datetime | None = field(default=None)
+    updated_lt: datetime | None = field(default=None)
+    updated_le: datetime | None = field(default=None)
+    updated_gt: datetime | None = field(default=None)
+    updated_ge: datetime | None = field(default=None)
+    updated_in: list[datetime] | None = field(default=None)
+    updated_notin: list[datetime] | None = field(default=None)
+
+
+@dataclass(eq=False)
+class VisitsPlacesFilesListRequest(BaseListRequest):
+    id: UUID | None = field(default=None)
+    id_ne: UUID | None = field(default=None)
+    id_in: list[UUID] | None = field(default=None)
+    id_notin: list[UUID] | None = field(default=None)
+
+    visit_place_id: UUID | None = field(default=None)
+    visit_place_id_ne: UUID | None = field(default=None)
+    visit_place_id_in: list[UUID] | None = field(default=None)
+    visit_place_id_notin: list[UUID] | None = field(default=None)
+
+    file_id: UUID | None = field(default=None)
+    file_id_ne: UUID | None = field(default=None)
+    file_id_in: list[UUID] | None = field(default=None)
+    file_id_notin: list[UUID] | None = field(default=None)
 
     created: datetime | None = field(default=None)
     created_ne: datetime | None = field(default=None)
@@ -469,35 +583,36 @@ class EarnedAchievementsListResponse(BaseModel):
     pagination: PaginationResponse
 
 
-VisitVisibility = Literal['private', 'followers', 'public']
-
-
 class MarkVisitRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     country_code: str = Field(min_length=2, max_length=2)
     title: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = None
-    visibility: VisitVisibility = 'private'
+    visibility: VisitVisibility = VisitVisibility.PRIVATE
+    status: VisitStatus = VisitStatus.VISITED
     date_from: date | None = None
     date_to: date | None = None
     city_ids: list[UUID] | None = None
     cover_file_id: UUID | None = None
 
     city_id: UUID | None = None  # backward compatibility (visit-v1)
-    trip_date: date | None = None  # backward compatibility (visit-v1)
 
 
 class UpdateVisitRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     country_code: str | None = Field(default=None, min_length=2, max_length=2)
     title: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = None
     visibility: VisitVisibility | None = None
+    status: VisitStatus | None = None
     date_from: date | None = None
     date_to: date | None = None
     city_ids: list[UUID] | None = None
     cover_file_id: UUID | None = None
 
     city_id: UUID | None = None  # backward compatibility (visit-v1)
-    trip_date: date | None = None  # backward compatibility (visit-v1)
 
 
 class VisitEventResponse(BaseModel):
@@ -509,19 +624,97 @@ class VisitEventResponse(BaseModel):
     title: str
     description: str | None = None
     visibility: VisitVisibility
+    status: VisitStatus
     date_from: date
     date_to: date | None = None
     city_ids: list[UUID] = Field(default_factory=list)
     cover_file_id: UUID | None = None
 
     city_id: UUID | None = None
-    trip_date: date | None = None
     created: datetime
     updated: datetime
 
 
 class VisitsListResponse(BaseModel):
     items: list[VisitEventResponse]
+    pagination: PaginationResponse
+
+
+class CreateVisitChecklistRequest(BaseModel):
+    visit_id: UUID
+    content: str = Field(min_length=1)
+
+
+class UpdateVisitChecklistRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    content: str | None = Field(default=None, min_length=1)
+    status: CheckListStatus | None = None
+
+
+class VisitChecklistResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    visit_id: UUID
+    content: str
+    status: CheckListStatus
+    user_id: UUID
+    created: datetime
+    updated: datetime
+
+
+class VisitsChecklistListResponse(BaseModel):
+    items: list[VisitChecklistResponse]
+    pagination: PaginationResponse
+
+
+class CreateVisitPlaceRequest(BaseModel):
+    visit_id: UUID
+    title: str = Field(min_length=1, max_length=255)
+
+
+class UpdateVisitPlaceRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    is_visited: bool | None = None
+
+
+class VisitPlaceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    visit_id: UUID
+    title: str
+    user_id: UUID
+    is_visited: bool
+    created: datetime
+    updated: datetime
+
+
+class VisitsPlacesListResponse(BaseModel):
+    items: list[VisitPlaceResponse]
+    pagination: PaginationResponse
+
+
+class CreateVisitPlaceFileRequest(BaseModel):
+    visit_place_id: UUID
+    file_id: UUID
+
+
+class VisitPlaceFileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    visit_place_id: UUID
+    file_id: UUID
+    created: datetime
+    updated: datetime
+
+
+class VisitsPlacesFilesListResponse(BaseModel):
+    items: list[VisitPlaceFileResponse]
     pagination: PaginationResponse
 
 
