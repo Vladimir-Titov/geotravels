@@ -30,7 +30,7 @@ class VisitsRepository(BaseEntityDBRepository):
         title: str,
         description: str | None,
         visibility: VisitVisibility,
-        date_from: date,
+        date_from: date | None,
         date_to: date | None,
         city_id: UUID | None,
         status: VisitStatus,
@@ -41,11 +41,11 @@ class VisitsRepository(BaseEntityDBRepository):
             country_code=country_code,
             title=title,
             description=description,
-            visibility=visibility,
+            visibility=visibility.value,
             date_from=date_from,
             date_to=date_to,
             city_id=city_id,
-            status=status,
+            status=status.value,
         )
 
     async def list_by_user(self, user_id: UUID) -> list[dict[str, Any]]:
@@ -94,7 +94,7 @@ class VisitsRepository(BaseEntityDBRepository):
                 visits_checklist.c.visit_id,
                 func.count(visits_checklist.c.id).label('checklist_total'),
                 func.count(visits_checklist.c.id)
-                .filter(visits_checklist.c.status == CheckListStatus.DONE)
+                .filter(visits_checklist.c.status == CheckListStatus.DONE.value)
                 .label('checklist_done'),
             )
             .where(visits_checklist.c.user_id == user_id)
@@ -123,6 +123,7 @@ class VisitsRepository(BaseEntityDBRepository):
         limit: int,
         offset: int,
     ) -> PaginatedResponse:
+        status_value = status.value
         ranked_files = self._ranked_visit_files(user_id)
         photo_counts = self._photo_counts(user_id)
         checklist_counts = self._checklist_counts(user_id)
@@ -157,18 +158,18 @@ class VisitsRepository(BaseEntityDBRepository):
                 .outerjoin(checklist_counts, checklist_counts.c.visit_id == visits.c.id)
                 .outerjoin(places_counts, places_counts.c.visit_id == visits.c.id)
             )
-            .where(visits.c.user_id == user_id, visits.c.status == status)
+            .where(visits.c.user_id == user_id, visits.c.status == status_value)
             .limit(limit)
             .offset(offset)
         )
 
-        if status == VisitStatus.PLANNED:
+        if status_value == VisitStatus.PLANNED.value:
             query = query.order_by(visits.c.date_from.asc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
         else:
             query = query.order_by(visits.c.date_from.desc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
 
         count_query = (
-            select(func.count()).select_from(visits).where(visits.c.user_id == user_id, visits.c.status == status)
+            select(func.count()).select_from(visits).where(visits.c.user_id == user_id, visits.c.status == status_value)
         )
 
         rows = await self.fetch(query)
@@ -265,7 +266,10 @@ class VisitsRepository(BaseEntityDBRepository):
                     cities.c.id == visits.c.city_id,
                 )
             )
-            .where(visits.c.user_id == user_id, visits.c.status.in_([VisitStatus.VISITED, VisitStatus.PLANNED]))
+            .where(
+                visits.c.user_id == user_id,
+                visits.c.status.in_([VisitStatus.VISITED.value, VisitStatus.PLANNED.value]),
+            )
         )
         rows = await self.fetch(query)
         return [self._normalize_uuid_fields(row, ('id', 'city_id')) for row in rows]
@@ -284,7 +288,7 @@ class VisitsRepository(BaseEntityDBRepository):
                     cities.c.id == visits_cities.c.city_id,
                 )
             )
-            .where(visits.c.user_id == user_id, visits.c.status == VisitStatus.VISITED)
+            .where(visits.c.user_id == user_id, visits.c.status == VisitStatus.VISITED.value)
         )
         fallback_city_links = (
             select(
@@ -295,7 +299,7 @@ class VisitsRepository(BaseEntityDBRepository):
             .select_from(visits.join(cities, cities.c.id == visits.c.city_id))
             .where(
                 visits.c.user_id == user_id,
-                visits.c.status == VisitStatus.VISITED,
+                visits.c.status == VisitStatus.VISITED.value,
                 visits.c.city_id.is_not(None),
                 ~has_visit_city,
             )

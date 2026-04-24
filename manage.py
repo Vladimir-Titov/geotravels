@@ -49,21 +49,9 @@ async def seed_countries(settings: AppSettings) -> int:
 
 
 def run_server(reload: bool) -> None:
-    import sentry_sdk
-
-    settings = AppSettings()
-    if settings.log.sentry_enable:
-        sentry_sdk.init(
-            dsn=settings.log.sentry_dsn,
-            environment=settings.environment,
-            traces_sample_rate=settings.log.sentry_traces_sample_rate,
-            enable_tracing=True,
-            send_default_pii=settings.log.sentry_send_default_pii,
-            attach_stacktrace=settings.log.sentry_attach_stacktrace,
-            in_app_include=['geotravels'],
-        )
     host = os.getenv('UVICORN_HOST', '0.0.0.0')
     port = int(os.getenv('UVICORN_PORT', '8000'))
+
     uvicorn.run('web.app:app', host=host, port=port, reload=reload)
 
 
