@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import aiohttp
+import sentry_sdk
 from litestar import Litestar, MediaType, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.di import Provide
@@ -53,6 +54,23 @@ from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
 
 logger = logging.getLogger(__name__)
+_sentry_initialized = False
+
+
+def init_sentry(settings: AppSettings) -> None:
+    global _sentry_initialized
+    if _sentry_initialized or not (settings.log.sentry_enable and settings.log.sentry_dsn):
+        return
+
+    sentry_sdk.init(
+        dsn=settings.log.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=settings.log.sentry_traces_sample_rate,
+        send_default_pii=settings.log.sentry_send_default_pii,
+        attach_stacktrace=settings.log.sentry_attach_stacktrace,
+        in_app_include=['app', 'web', 'helpers', 'settings'],
+    )
+    _sentry_initialized = True
 
 
 def _service_error_response(exc: ServiceError) -> Response[dict[str, Any]]:
@@ -124,6 +142,7 @@ def create_app(
     http_session: aiohttp.ClientSession | None = None,
 ) -> Litestar:
     app_settings = settings or get_settings()
+    init_sentry(app_settings)
 
     async def startup(app: Litestar) -> None:
         app.state.http_client_session = http_session or aiohttp.ClientSession()
@@ -243,7 +262,8 @@ def create_app(
 
     def after_exception(exc: Exception, _scope: object) -> None:
         if not isinstance(exc, (HTTPException, ServiceError)):
-            logger.exception('Unhandled exception', exc_info=exc)
+            sentry_sdk.capture_exception(exc)
+            logger.exception('Unhandled exception', exc_info=(type(exc), exc, exc.__traceback__))
 
     prometheus_config = PrometheusConfig(
         app_name='tripmark',

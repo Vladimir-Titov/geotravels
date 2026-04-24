@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,8 +9,11 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy import create_engine, text
 
+os.environ['GEOTRAVELS_ENVIRONMENT'] = 'test'
+os.environ['GEOTRAVELS_SENTRY_ENABLE'] = 'false'
+
 from app.models.tables import countries, metadata
-from settings import AppSettings, AuthSettings, ClientGeoSettings, OtpSettings, to_sync_database_url
+from settings import AppSettings, AuthSettings, ClientGeoSettings, LogSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 
 TEST_OTP_MOCK_CODE = '654321'
@@ -38,12 +42,14 @@ class TestFileStorage:
 @pytest.fixture()
 def settings() -> AppSettings:
     return AppSettings(
+        environment='test',
         countries_geojson_path=Path('data/countries.geojson'),
         auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
         otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
         client_geo=ClientGeoSettings(
             geonames_username='demo',
         ),
+        log=LogSettings(sentry_enable=False),
     )
 
 
