@@ -110,7 +110,7 @@ visits = Table(
     Column('title', String(length=80), nullable=False),
     Column('description', Text, nullable=True),
     Column('visibility', String(length=16), nullable=False),
-    Column('date_from', Date, nullable=False, server_default=func.current_date()),
+    Column('date_from', Date, nullable=True),
     Column('date_to', Date, nullable=True),
     Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
     Column('trip_start', Date, nullable=True),

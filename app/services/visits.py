@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from collections import Counter
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -13,7 +14,7 @@ from app.services.exceptions import NotFoundError, ServiceError
 
 
 class VisitsService:
-    DEFAULT_TITLE = 'Untitled story'
+    DEFAULT_TITLE = 'Untitled trip'
     DEFAULT_VISIBILITY = VisitVisibility.PRIVATE
     ALLOWED_VISIBILITIES = set(VisitVisibility)
     ALLOWED_STATUSES = {
@@ -80,8 +81,8 @@ class VisitsService:
         return city_ids[0] if city_ids else None
 
     @staticmethod
-    def _validate_date_range(date_from: date, date_to: date | None) -> None:
-        if date_to is not None and date_to < date_from:
+    def _validate_date_range(date_from: date | None, date_to: date | None) -> None:
+        if date_from is not None and date_to is not None and date_to < date_from:
             raise ServiceError('date_to cannot be earlier than date_from')
 
     async def _get_visit_or_raise(self, visit_id: UUID, user_id: UUID) -> dict[str, Any]:
@@ -123,7 +124,7 @@ class VisitsService:
             item['title'] = item.get('title') or self.DEFAULT_TITLE
             item['visibility'] = item.get('visibility') or self.DEFAULT_VISIBILITY
             item['status'] = item.get('status') or VisitStatus.VISITED
-            item['date_from'] = item.get('date_from') or datetime.now(UTC).date()
+            item['date_from'] = item.get('date_from')
             item['city_ids'] = city_ids
             item['city_id'] = self._resolve_primary_city_id(city_ids)
             item['cover_file_id'] = cover_file_ids_by_visit.get(item['id'])
@@ -153,7 +154,7 @@ class VisitsService:
         resolved_title = self._normalize_title(title)
         resolved_visibility = self._normalize_visibility(visibility)
         resolved_status = self._normalize_status(status)
-        resolved_date_from = date_from or datetime.now(UTC).date()
+        resolved_date_from = date_from
         resolved_city_ids = self._resolve_city_ids(city_ids=city_ids, city_id=city_id)
         resolved_city_id = self._resolve_primary_city_id(resolved_city_ids)
 
@@ -211,13 +212,11 @@ class VisitsService:
 
         has_city_ids = 'city_ids' in payload
         has_city_id = 'city_id' in payload
-        has_date_from = 'date_from' in payload
         has_cover_file_id = 'cover_file_id' in payload
 
         update_payload = dict(payload)
         provided_city_ids = update_payload.pop('city_ids', None)
         provided_city_id = update_payload.pop('city_id', None)
-        provided_date_from = update_payload.get('date_from')
         cover_file_id = update_payload.pop('cover_file_id', None) if has_cover_file_id else None
 
         next_city_ids: list[UUID] | None = None
@@ -227,10 +226,6 @@ class VisitsService:
                 city_id=provided_city_id if has_city_id else None,
             )
             update_payload['city_id'] = self._resolve_primary_city_id(next_city_ids)
-
-        if has_date_from:
-            if provided_date_from is None:
-                raise ServiceError('date_from cannot be empty')
 
         if 'title' in update_payload:
             update_payload['title'] = self._normalize_title(update_payload['title'])
@@ -247,9 +242,9 @@ class VisitsService:
                     user_id=user_id,
                 )
 
-        resulting_date_from = update_payload.get('date_from') or existing.get('date_from')
-        if resulting_date_from is None:
-            raise ServiceError('date_from cannot be empty')
+        resulting_date_from = (
+            update_payload['date_from'] if 'date_from' in update_payload else existing.get('date_from')
+        )
         resulting_date_to = update_payload.get('date_to', existing.get('date_to'))
         self._validate_date_range(date_from=resulting_date_from, date_to=resulting_date_to)
 
@@ -277,3 +272,129 @@ class VisitsService:
     async def delete_visit_by_id(self, visit_id: UUID, user_id: UUID) -> None:
         await self._get_visit_or_raise(visit_id=visit_id, user_id=user_id)
         await self.visits_repository.delete_by_id(entity_id=visit_id)
+
+    @staticmethod
+    def _file_download_url(file_id: UUID | None) -> str | None:
+        return f'/api/v1/files/{file_id}/download' if file_id else None
+
+    async def list_visit_cards(
+        self,
+        user_id: UUID,
+        status: VisitStatus | str,
+        limit: int,
+        offset: int,
+    ) -> PaginatedResponse:
+        if isinstance(status, str):
+            try:
+                status = VisitStatus(status)
+            except ValueError as exc:
+                raise ServiceError('status must be one of: visited, planned') from exc
+
+        if status not in {VisitStatus.VISITED, VisitStatus.PLANNED}:
+            raise ServiceError('status must be one of: visited, planned')
+
+        response = await self.visits_repository.list_visit_cards(
+            user_id=user_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+        items: list[dict[str, Any]] = []
+        for row in response.items:
+            item = dict(row)
+            item['cover_url'] = self._file_download_url(item.pop('cover_file_id', None))
+            items.append(item)
+        return PaginatedResponse(items=items, pagination=response.pagination)
+
+    async def get_visit_details(self, visit_id: UUID, user_id: UUID) -> dict[str, Any]:
+        header = await self.visits_repository.get_visit_detail_header(visit_id=visit_id, user_id=user_id)
+        if not header:
+            raise NotFoundError('Visit not found')
+
+        fallback_cover_file_id = header.get('cover_file_id')
+        visit = await self._enrich_visit(header)
+        if visit.get('cover_file_id') is None and fallback_cover_file_id is not None:
+            visit['cover_file_id'] = fallback_cover_file_id
+        photos = await self.visits_repository.list_visit_detail_photos(visit_id=visit_id, user_id=user_id)
+        checklist = await self.visits_repository.list_visit_detail_checklist(visit_id=visit_id, user_id=user_id)
+        places = await self.visits_repository.list_visit_detail_places(visit_id=visit_id, user_id=user_id)
+        cities = await self.visits_repository.list_visit_detail_cities(visit_id=visit_id)
+
+        if not cities and visit.get('city_id') and visit.get('city_name'):
+            cities = [
+                {
+                    'id': visit['city_id'],
+                    'name': visit['city_name'],
+                    'country_code': visit['country_code'],
+                }
+            ]
+
+        visit['cover_url'] = self._file_download_url(visit.get('cover_file_id'))
+        return {
+            'visit': visit,
+            'photos': [
+                {
+                    **photo,
+                    'file_url': self._file_download_url(photo['id']),
+                }
+                for photo in photos
+            ],
+            'checklist': checklist,
+            'places': places,
+            'cities': cities,
+        }
+
+    @staticmethod
+    def _status_is(value: Any, expected: VisitStatus) -> bool:
+        return value == expected or value == expected.value
+
+    async def get_visit_statistics(self, user_id: UUID) -> dict[str, Any]:
+        visits_rows = await self.visits_repository.list_user_visits_for_statistics(user_id=user_id)
+        visited_rows = [row for row in visits_rows if self._status_is(row.get('status'), VisitStatus.VISITED)]
+        planned_count = sum(1 for row in visits_rows if self._status_is(row.get('status'), VisitStatus.PLANNED))
+
+        countries = Counter(str(row['country_code']) for row in visited_rows if row.get('country_code'))
+        country_names: dict[str, str | None] = {
+            str(row['country_code']): row.get('country_name') for row in visited_rows if row.get('country_code')
+        }
+
+        city_links = await self.visits_repository.list_user_visit_city_links_for_statistics(user_id=user_id)
+        city_counts = Counter(str(row['city_id']) for row in city_links if row.get('city_id'))
+        city_names: dict[str, str] = {
+            str(row['city_id']): str(row['city_name'])
+            for row in city_links
+            if row.get('city_id') and row.get('city_name')
+        }
+
+        favorite_city = None
+        if city_counts:
+            favorite_city_id, favorite_count = sorted(
+                city_counts.items(),
+                key=lambda item: (-item[1], city_names.get(item[0], '')),
+            )[0]
+            favorite_city = {
+                'city_id': UUID(favorite_city_id),
+                'city_name': city_names.get(favorite_city_id, favorite_city_id),
+                'visits_count': favorite_count,
+            }
+
+        trips_by_country = [
+            {
+                'country_name': country_names.get(country_code) or country_code,
+                'trips_count': trips_count,
+            }
+            for country_code, trips_count in sorted(
+                countries.items(),
+                key=lambda item: (-item[1], country_names.get(item[0]) or item[0]),
+            )
+        ]
+
+        return {
+            'visited_count': len(visited_rows),
+            'planned_count': planned_count,
+            'countries_count': len(countries),
+            'cities_count': len(city_counts),
+            'repeated_countries_count': sum(1 for count in countries.values() if count > 1),
+            'favorite_city': favorite_city,
+            'trips_by_country': trips_by_country,
+        }

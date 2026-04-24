@@ -61,6 +61,35 @@ async def test_visit_crud_for_current_user(db_pool) -> None:
 
 
 @pytest.mark.asyncio
+async def test_visit_dates_can_be_empty(db_pool) -> None:
+    user_id = await _create_user(db_pool)
+    service = VisitsService(
+        visits_repository=VisitsRepository(db_pool),
+        visits_cities_repository=VisitsCitiesRepository(db_pool),
+        files_repository=FilesRepository(db_pool),
+    )
+
+    created = await service.create_visit(
+        user_id=user_id,
+        country_code='FR',
+        city_id=None,
+        date_from=None,
+        date_to=None,
+    )
+    assert created['date_from'] is None
+    assert created['date_to'] is None
+
+    updated = await service.update_visit_by_id(
+        visit_id=created['id'],
+        user_id=user_id,
+        date_from=None,
+        date_to=None,
+    )
+    assert updated['date_from'] is None
+    assert updated['date_to'] is None
+
+
+@pytest.mark.asyncio
 async def test_visit_scope_isolated_by_user(db_pool) -> None:
     owner_id = await _create_user(db_pool)
     stranger_id = await _create_user(db_pool)
