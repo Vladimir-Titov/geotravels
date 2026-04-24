@@ -18,7 +18,6 @@ from app.repositories import (
     AchievementsRepository,
     CitiesRepository,
     CountriesRepository,
-    DashboardRepository,
     FilesRepository,
     FollowersRepository,
     OtpRequestsRepository,
@@ -36,7 +35,6 @@ from app.services import (
     AuthService,
     ClientGeoSearchService,
     CountriesService,
-    DashboardService,
     FilesService,
     FollowersService,
     UsersService,
@@ -211,10 +209,6 @@ def create_app(
             files_repository=FilesRepository(db_pool),
         )
 
-    def provide_dashboard_service(request: Request) -> DashboardService:
-        dashboard_repository = DashboardRepository(request.app.state.db_pool)
-        return DashboardService(dashboard_repository=dashboard_repository)
-
     def provide_followers_service(request: Request) -> FollowersService:
         users_repository = UsersRepository(request.app.state.db_pool)
         followers_repository = FollowersRepository(request.app.state.db_pool)
@@ -290,7 +284,6 @@ def create_app(
             'visits_checklist_service': Provide(provide_visits_checklist_service, sync_to_thread=False),
             'visits_places_service': Provide(provide_visits_places_service, sync_to_thread=False),
             'visits_places_files_service': Provide(provide_visits_places_files_service, sync_to_thread=False),
-            'dashboard_service': Provide(provide_dashboard_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
         },
         exception_handlers={

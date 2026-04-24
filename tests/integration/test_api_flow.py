@@ -221,7 +221,7 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
         headers=auth_headers,
         json={
             'country_code': 'FR',
-            'title': 'France spring story',
+            'title': 'France spring trip',
             'description': 'Paris and Lyon',
             'visibility': VisitVisibility.FOLLOWERS,
             'date_from': '2025-03-10',
@@ -233,7 +233,7 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     created_visit = create_response.json()
     visit_id = created_visit['id']
 
-    assert created_visit['title'] == 'France spring story'
+    assert created_visit['title'] == 'France spring trip'
     assert created_visit['description'] == 'Paris and Lyon'
     assert created_visit['visibility'] == VisitVisibility.FOLLOWERS
     assert created_visit['status'] == VisitStatus.VISITED
@@ -287,7 +287,7 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     assert list_response.status_code == 200
     list_payload = list_response.json()
     assert list_payload['pagination']['total'] == 1
-    assert list_payload['items'][0]['title'] == 'France spring story'
+    assert list_payload['items'][0]['title'] == 'France spring trip'
     assert list_payload['items'][0]['city_ids'] == [str(paris_id), str(lyon_id)]
 
     unset_cover_response = client.patch(
@@ -372,6 +372,134 @@ def test_visits_status_filters_and_trip_date_payload_is_rejected(client, setting
         json={'trip_date': '2025-05-03'},
     )
     assert rejected_patch.status_code == 400
+
+
+def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> None:
+    tokens = _get_tokens(client, 'trip-read-models@example.com', settings.otp.otp_mock_code)
+    auth_headers = _auth_headers(tokens)
+
+    paris_id = uuid4()
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
+    try:
+        with sync_engine.begin() as conn:
+            conn.execute(
+                cities.insert(),
+                [
+                    {
+                        'id': paris_id,
+                        'country_code': 'FR',
+                        'name': 'Paris',
+                        'name_normalized': 'paris',
+                    }
+                ],
+            )
+    finally:
+        sync_engine.dispose()
+
+    memory_visit = _create_visit(
+        client,
+        auth_headers,
+        country_code='FR',
+        title='Paris memory',
+        status=VisitStatus.VISITED,
+        city_ids=[str(paris_id)],
+    )
+    assert memory_visit['date_from'] is None
+
+    dated_memory = _create_visit(
+        client,
+        auth_headers,
+        country_code='FR',
+        title='France return',
+        status=VisitStatus.VISITED,
+        date_from='2025-04-10',
+    )
+    plan = _create_visit(
+        client,
+        auth_headers,
+        country_code='IT',
+        title='Rome plan',
+        status=VisitStatus.PLANNED,
+        date_from='2026-05-01',
+    )
+
+    photo = _upload_file_for_visit(
+        client,
+        auth_headers,
+        memory_visit['id'],
+        'paris.jpg',
+        b'paris-bytes',
+    )
+
+    checklist_response = client.post(
+        '/api/v1/visits/checklist',
+        headers=auth_headers,
+        json={'visit_id': memory_visit['id'], 'content': 'Upload photos'},
+    )
+    assert checklist_response.status_code == 201
+    checklist_id = checklist_response.json()['id']
+    checklist_done = client.patch(
+        f'/api/v1/visits/checklist/{checklist_id}',
+        headers=auth_headers,
+        json={'status': CheckListStatus.DONE},
+    )
+    assert checklist_done.status_code == 200
+
+    place_response = client.post(
+        '/api/v1/visits/places',
+        headers=auth_headers,
+        json={'visit_id': memory_visit['id'], 'title': 'Louvre'},
+    )
+    assert place_response.status_code == 201
+    place_id = place_response.json()['id']
+    place_visited = client.patch(
+        f'/api/v1/visits/places/{place_id}',
+        headers=auth_headers,
+        json={'is_visited': True},
+    )
+    assert place_visited.status_code == 200
+
+    visited_cards = client.get('/api/v1/visits/cards?status=visited&limit=10&offset=0', headers=auth_headers)
+    assert visited_cards.status_code == 200
+    visited_payload = visited_cards.json()
+    assert visited_payload['pagination']['total'] == 2
+    assert [item['id'] for item in visited_payload['items']] == [dated_memory['id'], memory_visit['id']]
+
+    memory_card = next(item for item in visited_payload['items'] if item['id'] == memory_visit['id'])
+    assert memory_card['date_from'] is None
+    assert memory_card['cover_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert memory_card['photos_count'] == 1
+    assert memory_card['checklist_total'] == 1
+    assert memory_card['checklist_done'] == 1
+    assert memory_card['places_total'] == 1
+    assert memory_card['places_visited'] == 1
+    assert memory_card['city_name'] == 'Paris'
+
+    planned_cards = client.get('/api/v1/visits/cards?status=planned&limit=10&offset=0', headers=auth_headers)
+    assert planned_cards.status_code == 200
+    planned_payload = planned_cards.json()
+    assert planned_payload['pagination']['total'] == 1
+    assert planned_payload['items'][0]['id'] == plan['id']
+
+    details = client.get(f'/api/v1/visits/{memory_visit["id"]}/details', headers=auth_headers)
+    assert details.status_code == 200
+    details_payload = details.json()
+    assert details_payload['visit']['cover_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert details_payload['photos'][0]['file_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert details_payload['checklist'][0]['status'] == CheckListStatus.DONE
+    assert details_payload['places'][0]['is_visited'] is True
+    assert details_payload['cities'][0]['name'] == 'Paris'
+
+    statistics = client.get('/api/v1/visits/statistics', headers=auth_headers)
+    assert statistics.status_code == 200
+    stats_payload = statistics.json()
+    assert stats_payload['visited_count'] == 2
+    assert stats_payload['planned_count'] == 1
+    assert stats_payload['countries_count'] == 1
+    assert stats_payload['cities_count'] == 1
+    assert stats_payload['repeated_countries_count'] == 1
+    assert stats_payload['favorite_city']['city_name'] == 'Paris'
+    assert stats_payload['trips_by_country'] == [{'country_name': 'France', 'trips_count': 2}]
 
 
 def test_visits_checklist_crud(client, settings) -> None:

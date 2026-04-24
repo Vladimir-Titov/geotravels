@@ -2,6 +2,7 @@ from uuid import UUID
 
 from litestar import Router, delete, get, patch, post
 
+from app.models.tables import VisitStatus
 from app.services.current_user import CurrentUser
 from app.services.exceptions import ServiceError
 from app.services.visits import VisitsService
@@ -9,9 +10,12 @@ from web.api.schemas import (
     MarkVisitRequest,
     PaginationResponse,
     UpdateVisitRequest,
+    VisitCardsListResponse,
+    VisitDetailsResponse,
     VisitEventResponse,
     VisitsListRequest,
     VisitsListResponse,
+    VisitStatisticsResponse,
 )
 from web.utils import from_query
 
@@ -60,6 +64,53 @@ async def list_visits(
     )
 
 
+@get(
+    '/cards',
+    tags=['visits'],
+    security=[{'user_auth': []}],
+)
+async def list_visit_cards(
+    visits_service: VisitsService,
+    current_user: CurrentUser,
+    status: VisitStatus,
+    limit: int = 100,
+    offset: int = 0,
+) -> VisitCardsListResponse:
+    data = await visits_service.list_visit_cards(
+        user_id=current_user.id,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return VisitCardsListResponse(
+        items=data.items,
+        pagination=PaginationResponse(
+            limit=data.pagination.limit,
+            offset=data.pagination.offset,
+            total=data.pagination.total,
+        ),
+    )
+
+
+@get('/statistics', tags=['visits'], security=[{'user_auth': []}])
+async def get_visit_statistics(
+    visits_service: VisitsService,
+    current_user: CurrentUser,
+) -> VisitStatisticsResponse:
+    statistics = await visits_service.get_visit_statistics(user_id=current_user.id)
+    return VisitStatisticsResponse(**statistics)
+
+
+@get('/{visit_id:uuid}/details', tags=['visits'], security=[{'user_auth': []}])
+async def get_visit_details(
+    visit_id: UUID,
+    visits_service: VisitsService,
+    current_user: CurrentUser,
+) -> VisitDetailsResponse:
+    details = await visits_service.get_visit_details(visit_id=visit_id, user_id=current_user.id)
+    return VisitDetailsResponse(**details)
+
+
 @get('/{visit_id:uuid}', tags=['visits'], security=[{'user_auth': []}])
 async def get_visit_by_id(
     visit_id: UUID,
@@ -103,5 +154,14 @@ async def delete_visit_by_id(
 
 visits_router = Router(
     path='/api/v1/visits',
-    route_handlers=[create_visit, list_visits, get_visit_by_id, update_visit_by_id, delete_visit_by_id],
+    route_handlers=[
+        create_visit,
+        list_visits,
+        list_visit_cards,
+        get_visit_statistics,
+        get_visit_details,
+        get_visit_by_id,
+        update_visit_by_id,
+        delete_visit_by_id,
+    ],
 )

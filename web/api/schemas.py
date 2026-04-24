@@ -625,7 +625,7 @@ class VisitEventResponse(BaseModel):
     description: str | None = None
     visibility: VisitVisibility
     status: VisitStatus
-    date_from: date
+    date_from: date | None = None
     date_to: date | None = None
     city_ids: list[UUID] = Field(default_factory=list)
     cover_file_id: UUID | None = None
@@ -638,6 +638,50 @@ class VisitEventResponse(BaseModel):
 class VisitsListResponse(BaseModel):
     items: list[VisitEventResponse]
     pagination: PaginationResponse
+
+
+class VisitCardResponse(BaseModel):
+    id: UUID
+    status: VisitStatus
+    title: str
+    country_code: str
+    country_name: str | None = None
+    city_id: UUID | None = None
+    city_name: str | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    cover_url: str | None = None
+    photos_count: int
+    checklist_total: int
+    checklist_done: int
+    places_total: int
+    places_visited: int
+
+
+class VisitCardsListResponse(BaseModel):
+    items: list[VisitCardResponse]
+    pagination: PaginationResponse
+
+
+class TripsByCountryResponse(BaseModel):
+    country_name: str | None = None
+    trips_count: int
+
+
+class FavoriteCityResponse(BaseModel):
+    city_id: UUID
+    city_name: str
+    visits_count: int
+
+
+class VisitStatisticsResponse(BaseModel):
+    visited_count: int
+    planned_count: int
+    countries_count: int
+    cities_count: int
+    repeated_countries_count: int
+    favorite_city: FavoriteCityResponse | None = None
+    trips_by_country: list[TripsByCountryResponse]
 
 
 class CreateVisitChecklistRequest(BaseModel):
@@ -691,6 +735,35 @@ class VisitPlaceResponse(BaseModel):
     is_visited: bool
     created: datetime
     updated: datetime
+
+
+class VisitDetailsVisitResponse(VisitEventResponse):
+    country_name: str | None = None
+    city_name: str | None = None
+    cover_url: str | None = None
+
+
+class VisitDetailsPhotoResponse(BaseModel):
+    id: UUID
+    file_url: str
+    filename: str | None = None
+    file_type: str | None = None
+    is_private: bool
+    is_cover: bool
+
+
+class VisitDetailsCityResponse(BaseModel):
+    id: UUID
+    name: str
+    country_code: str
+
+
+class VisitDetailsResponse(BaseModel):
+    visit: VisitDetailsVisitResponse
+    photos: list[VisitDetailsPhotoResponse]
+    checklist: list[VisitChecklistResponse]
+    places: list[VisitPlaceResponse]
+    cities: list[VisitDetailsCityResponse]
 
 
 class VisitsPlacesListResponse(BaseModel):
@@ -767,84 +840,6 @@ class VisitFileResponse(BaseModel):
 class FilesListResponse(BaseModel):
     items: list[VisitFileResponse]
     pagination: PaginationResponse
-
-
-class DashboardMeResponse(BaseModel):
-    display_name: str | None = None
-    username: str | None = None
-
-
-class DashboardStatsResponse(BaseModel):
-    countries_count: int
-    cities_count: int
-    stories_count: int
-
-
-class DashboardMilestoneResponse(BaseModel):
-    progress_percent: int
-    current_value: int
-    target_value: int
-
-
-class DashboardRecapResponse(BaseModel):
-    period: str
-    is_ready: bool
-    share_url: str | None = None
-    share_route: str | None = None
-
-
-class DashboardRecentStoryLocationResponse(BaseModel):
-    country_code: str
-    country_name: str | None = None
-    city_id: UUID | None = None
-    city_name: str | None = None
-
-
-class DashboardStoryCountersResponse(BaseModel):
-    views: int | None = None
-    likes: int | None = None
-    comments: int | None = None
-
-
-DashboardStoryVisibility = VisitVisibility
-
-
-class DashboardRecentStoryResponse(BaseModel):
-    id: UUID
-    excerpt: str | None = None
-    visibility: DashboardStoryVisibility
-    created_at: datetime
-    location: DashboardRecentStoryLocationResponse
-    cover: str | None = None
-    counters: DashboardStoryCountersResponse
-
-
-class DashboardInboxItemResponse(BaseModel):
-    type: str
-    text: str
-    created_at: datetime
-    is_read: bool
-
-
-class DashboardInboxPreviewResponse(BaseModel):
-    unread_count: int
-    items: list[DashboardInboxItemResponse]
-
-
-class DashboardMostVisitedItemResponse(BaseModel):
-    country_name: str | None = None
-    trips_count: int
-    relative_bar_value: int
-
-
-class DashboardResponse(BaseModel):
-    me: DashboardMeResponse
-    stats: DashboardStatsResponse
-    next_milestone: DashboardMilestoneResponse
-    recap: DashboardRecapResponse
-    recent_stories: list[DashboardRecentStoryResponse]
-    inbox_preview: DashboardInboxPreviewResponse
-    most_visited: list[DashboardMostVisitedItemResponse]
 
 
 class TelegramAuthRequest(BaseModel):
