@@ -1,6 +1,9 @@
+from typing import Annotated
 from uuid import UUID
 
 from litestar import Router, delete, get, patch, post
+from litestar.enums import RequestEncodingType
+from litestar.params import Body
 
 from app.models.tables import VisitStatus
 from app.services.current_user import CurrentUser
@@ -10,9 +13,11 @@ from web.api.schemas import (
     MarkVisitRequest,
     PaginationResponse,
     UpdateVisitRequest,
+    UploadFileRequest,
     VisitCardsListResponse,
     VisitDetailsResponse,
     VisitEventResponse,
+    VisitFileResponse,
     VisitsListRequest,
     VisitsListResponse,
     VisitStatisticsResponse,
@@ -152,6 +157,31 @@ async def delete_visit_by_id(
     )
 
 
+@post('/{visit_id:uuid}/file', tags=['visits'], security=[{'user_auth': []}])
+async def upload_photo_for_visit(
+    visit_id: UUID,
+    data: Annotated[UploadFileRequest, Body(media_type=RequestEncodingType.MULTI_PART)],
+    visits_service: VisitsService,
+    current_user: CurrentUser,
+) -> VisitFileResponse:
+    content = await data.file.read()
+    if not content:
+        raise ServiceError('File content is empty')
+
+    filename = data.filename.strip() if data.filename is not None else data.file.filename
+    if filename == '':
+        filename = data.file.filename
+
+    created = await visits_service.upload_photo_for_visit(
+        user_id=current_user.id,
+        visit_id=visit_id,
+        content=content,
+        filename=filename,
+        visibility=data.visibility,
+    )
+    return VisitFileResponse(**created)
+
+
 visits_router = Router(
     path='/api/v1/visits',
     route_handlers=[
@@ -160,6 +190,7 @@ visits_router = Router(
         list_visit_cards,
         get_visit_statistics,
         get_visit_details,
+        upload_photo_for_visit,
         get_visit_by_id,
         update_visit_by_id,
         delete_visit_by_id,

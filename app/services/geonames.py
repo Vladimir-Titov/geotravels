@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-import json
 import logging
 import unicodedata
 from decimal import Decimal, InvalidOperation

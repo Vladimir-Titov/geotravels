@@ -5,11 +5,6 @@ Revises: d4b9a2e7c1f0, d4f8e2a1c9b7
 Create Date: 2026-04-21 15:25:09.381405
 
 """
-from __future__ import annotations
-
-from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision = 'dc75048e7837'

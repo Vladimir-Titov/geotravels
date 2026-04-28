@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid7
@@ -12,18 +10,16 @@ from app.repositories.base import BaseEntityDBRepository
 
 class UsersAchievementsRepository(BaseEntityDBRepository):
     entity = users_achievements
-    base_search_query = (
-        select(
-            achievements.c.id,
-            achievements.c.title,
-            achievements.c.description,
-            achievements.c.logo_url,
-            achievements.c.created,
-            achievements.c.updated,
-            users_achievements.c.user_id,
-            users_achievements.c.complete_at,
-        ).select_from(users_achievements.join(achievements, users_achievements.c.achievements_id == achievements.c.id))
-    )
+    base_search_query = select(
+        achievements.c.id,
+        achievements.c.title,
+        achievements.c.description,
+        achievements.c.logo_url,
+        achievements.c.created,
+        achievements.c.updated,
+        users_achievements.c.user_id,
+        users_achievements.c.complete_at,
+    ).select_from(users_achievements.join(achievements, users_achievements.c.achievements_id == achievements.c.id))
 
     async def create(
         self,

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from litestar import Router, get
 
 from app.services.client_geo_search import ClientGeoSearchService

@@ -6,8 +6,6 @@ Create Date: 2026-04-24 12:00:00.000000
 
 """
 
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 
@@ -30,7 +28,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("UPDATE tripmark.visits SET date_from = CURRENT_DATE WHERE date_from IS NULL")
+    op.execute('UPDATE tripmark.visits SET date_from = CURRENT_DATE WHERE date_from IS NULL')
     op.alter_column(
         'visits',
         'date_from',

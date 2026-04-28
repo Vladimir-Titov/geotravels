@@ -36,6 +36,7 @@ class VisitVisibility(StrEnum):
 
 class FileVisibility(StrEnum):
     PRIVATE = 'private'
+    FOLLOWERS = 'followers'
     PUBLIC = 'public'
 
 

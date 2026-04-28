@@ -6,11 +6,8 @@ Create Date: 2026-04-21 15:31:55.916023
 
 """
 
-from __future__ import annotations
-
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '97416cb5e0b2'
@@ -79,9 +76,7 @@ def upgrade() -> None:
     op.create_unique_constraint(None, 'telegram_users', ['telegram_id'], schema='tripmark')
     op.add_column('visits', sa.Column('title', sa.String(length=80), nullable=True), schema='tripmark')
     op.add_column('visits', sa.Column('description', sa.Text(), nullable=True), schema='tripmark')
-    op.add_column(
-        'visits', sa.Column('visibility', sa.String(length=16), server_default='private'), schema='tripmark'
-    )
+    op.add_column('visits', sa.Column('visibility', sa.String(length=16), server_default='private'), schema='tripmark')
     op.add_column(
         'visits',
         sa.Column('date_from', sa.Date(), server_default=sa.text('CURRENT_DATE'), nullable=False),

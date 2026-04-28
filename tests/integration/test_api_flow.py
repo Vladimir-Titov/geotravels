@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -7,6 +5,7 @@ from sqlalchemy import create_engine
 
 from app.models.tables import (
     CheckListStatus,
+    FileVisibility,
     VisitStatus,
     VisitVisibility,
     achievements,
@@ -46,6 +45,12 @@ def _auth_headers(tokens: dict) -> dict[str, str]:
     return {'Authorization': f'Bearer {tokens["access_token"]}'}
 
 
+def _sample_image_bytes() -> bytes:
+    import pyvips
+
+    return pyvips.Image.black(8, 8).new_from_image(255).write_to_buffer('.png')
+
+
 def _create_visit(client, auth_headers: dict[str, str], **payload) -> dict:
     response = client.post('/api/v1/visits', headers=auth_headers, json=payload)
     assert response.status_code == 201
@@ -61,11 +66,10 @@ def _upload_file_for_visit(
     is_private: bool = False,
 ) -> dict:
     response = client.post(
-        '/api/v1/files',
+        f'/api/v1/visits/{visit_id}/file',
         headers=auth_headers,
         data={
-            'visit_id': visit_id,
-            'is_private': is_private,
+            'visibility': FileVisibility.PRIVATE.value if is_private else FileVisibility.PUBLIC.value,
         },
         files={'file': (filename, content, 'image/jpeg')},
     )
@@ -244,13 +248,12 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     assert created_visit['cover_file_id'] is None
 
     upload_cover_response = client.post(
-        '/api/v1/files',
+        f'/api/v1/visits/{visit_id}/file',
         headers=auth_headers,
         data={
-            'visit_id': visit_id,
-            'is_private': False,
+            'visibility': FileVisibility.PUBLIC.value,
         },
-        files={'file': ('cover.jpg', b'cover-bytes', 'image/jpeg')},
+        files={'file': ('cover.jpg', _sample_image_bytes(), 'image/jpeg')},
     )
     assert upload_cover_response.status_code == 201
     cover_file_payload = upload_cover_response.json()
@@ -428,7 +431,7 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
         auth_headers,
         memory_visit['id'],
         'paris.jpg',
-        b'paris-bytes',
+        _sample_image_bytes(),
     )
 
     checklist_response = client.post(
@@ -662,21 +665,21 @@ def test_visits_places_files_crud_and_constraints(client, settings) -> None:
         owner_headers,
         owner_visit['id'],
         'owner-place.jpg',
-        b'owner-place-bytes',
+        _sample_image_bytes(),
     )
     foreign_visit_file = _upload_file_for_visit(
         client,
         owner_headers,
         second_owner_visit['id'],
         'other-visit.jpg',
-        b'other-visit-bytes',
+        _sample_image_bytes(),
     )
     stranger_file = _upload_file_for_visit(
         client,
         stranger_headers,
         stranger_visit['id'],
         'stranger.jpg',
-        b'stranger-bytes',
+        _sample_image_bytes(),
     )
 
     assert client.get('/api/v1/visits/places-files?limit=10&offset=0').status_code == 401
@@ -745,7 +748,8 @@ def test_visits_places_files_crud_and_constraints(client, settings) -> None:
 
     download_after_delete = client.get(f'/api/v1/files/{owner_file["id"]}/download', headers=owner_headers)
     assert download_after_delete.status_code == 200
-    assert download_after_delete.content == b'owner-place-bytes'
+    assert download_after_delete.content
+    assert download_after_delete.headers['content-type'] == 'image/webp'
 
 
 def test_files_crud_for_owner(client, settings) -> None:
@@ -757,24 +761,23 @@ def test_files_crud_for_owner(client, settings) -> None:
     visit_id = created_visit.json()['id']
 
     create_file_response = client.post(
-        '/api/v1/files',
+        f'/api/v1/visits/{visit_id}/file',
         headers=auth_headers,
         data={
-            'visit_id': visit_id,
-            'is_private': False,
+            'visibility': FileVisibility.PUBLIC.value,
         },
-        files={'file': ('paris.jpg', b'fake-image-content', 'image/jpeg')},
+        files={'file': ('paris.jpg', _sample_image_bytes(), 'image/jpeg')},
     )
     assert create_file_response.status_code == 201
     created_file = create_file_response.json()
     assert created_file['visit_id'] == visit_id
-    assert created_file['filename'] == 'paris.jpg'
+    assert created_file['filename'] == 'paris.webp'
 
     download_response = client.get(f'/api/v1/files/{created_file["id"]}/download', headers=auth_headers)
     assert download_response.status_code == 200
-    assert download_response.content == b'fake-image-content'
-    assert download_response.headers['content-type'] == 'image/jpeg'
-    assert download_response.headers['content-disposition'] == 'attachment; filename="paris.jpg"'
+    assert download_response.content
+    assert download_response.headers['content-type'] == 'image/webp'
+    assert download_response.headers['content-disposition'] == 'attachment; filename="paris.webp"'
 
     mine_response = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
     assert mine_response.status_code == 200
@@ -811,25 +814,23 @@ def test_files_visibility_and_ownership(client, settings) -> None:
     visit_id = created_visit.json()['id']
 
     public_file = client.post(
-        '/api/v1/files',
+        f'/api/v1/visits/{visit_id}/file',
         headers=owner_headers,
         data={
-            'visit_id': visit_id,
-            'is_private': False,
+            'visibility': FileVisibility.PUBLIC.value,
         },
-        files={'file': ('public.jpg', b'public-bytes', 'image/jpeg')},
+        files={'file': ('public.jpg', _sample_image_bytes(), 'image/jpeg')},
     )
     assert public_file.status_code == 201
     public_file_id = public_file.json()['id']
 
     private_file = client.post(
-        '/api/v1/files',
+        f'/api/v1/visits/{visit_id}/file',
         headers=owner_headers,
         data={
-            'visit_id': visit_id,
-            'is_private': True,
+            'visibility': FileVisibility.PRIVATE.value,
         },
-        files={'file': ('private.jpg', b'private-bytes', 'image/jpeg')},
+        files={'file': ('private.jpg', _sample_image_bytes(), 'image/jpeg')},
     )
     assert private_file.status_code == 201
 

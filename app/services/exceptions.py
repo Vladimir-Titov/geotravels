@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any
 
 
@@ -29,3 +27,7 @@ class AppError(ServiceError):
 
 class CountdownError(ServiceError):
     status_code = 429
+
+
+class InvalidFileError(ServiceError):
+    status_code = 400

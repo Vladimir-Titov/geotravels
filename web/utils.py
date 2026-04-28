@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import dataclasses
 import inspect
 from typing import Any, get_type_hints

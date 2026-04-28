@@ -1,51 +1,18 @@
-from __future__ import annotations
-
-from typing import Annotated
 from uuid import UUID
 
-from litestar import Response, Router, delete, get, patch, post
-from litestar.enums import RequestEncodingType
+from litestar import Response, Router, delete, get, patch
 from litestar.openapi.datastructures import ResponseSpec
-from litestar.params import Body
 
 from app.services.current_user import CurrentUser
-from app.services.exceptions import ServiceError
 from app.services.files import FilesService
 from web.api.schemas import (
     FilesListRequest,
     FilesListResponse,
     PaginationResponse,
     UpdateFileRequest,
-    UploadFileRequest,
     VisitFileResponse,
 )
 from web.utils import from_query
-
-
-@post('', tags=['files'], security=[{'user_auth': []}])
-async def upload_file(
-    data: Annotated[UploadFileRequest, Body(media_type=RequestEncodingType.MULTI_PART)],
-    files_service: FilesService,
-    current_user: CurrentUser,
-) -> VisitFileResponse:
-    content = await data.file.read()
-    if not content:
-        raise ServiceError('File content is empty')
-
-    filename = data.filename.strip() if data.filename is not None else data.file.filename
-    if filename == '':
-        filename = data.file.filename
-    file_type = data.file_type.strip() if data.file_type is not None else data.file.content_type
-
-    created = await files_service.create_file_for_visit(
-        user_id=current_user.id,
-        visit_id=data.visit_id,
-        content=content,
-        filename=filename,
-        file_type=file_type,
-        is_private=data.is_private,
-    )
-    return VisitFileResponse(**created)
 
 
 @patch('/{file_id:uuid}', tags=['files'], security=[{'user_auth': []}])
@@ -160,5 +127,5 @@ async def list_public_user_files(
 
 files_router = Router(
     path='/api/v1/files',
-    route_handlers=[upload_file, update_file, delete_file, download_file, list_my_files, list_public_user_files],
+    route_handlers=[update_file, delete_file, download_file, list_my_files, list_public_user_files],
 )

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from web.api import (
     achievements_router,
     auth_router,

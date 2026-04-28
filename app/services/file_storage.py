@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
@@ -74,7 +72,6 @@ class S3FileStorage(FileStorage):
 
     async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:
         async with self._client() as client:
-            await self._ensure_bucket(client)
             await client.put_object(
                 Bucket=self._settings.s3_bucket_name,
                 Key=key,

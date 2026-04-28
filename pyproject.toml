@@ -24,6 +24,7 @@ dependencies = [
     "prometheus-client>=0.24.1",
     "aioboto3>=14.3.0",
     "aiocache>=0.12.3",
+    "pyvips>=3.1.1",
 ]
 
 [dependency-groups]

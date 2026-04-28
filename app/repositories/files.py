@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Sequence
 from typing import Any
 from uuid import UUID, uuid7
@@ -62,10 +60,12 @@ class FilesRepository(BaseDBRepository):
         file_id: UUID,
         visit_id: UUID,
         user_id: UUID,
-        is_private: bool,
         visibility: FileVisibility,
+        is_private: bool | None = None,
         is_cover: bool = False,
     ) -> dict[str, Any]:
+        if is_private is None:
+            is_private = visibility == FileVisibility.PRIVATE
         query = (
             files_visits.insert()
             .values(
@@ -184,17 +184,11 @@ class FilesRepository(BaseDBRepository):
             conditions.append(files_visits.c.is_private.is_(False))
 
         query = (
-            self._base_file_query()
-            .where(*conditions)
-            .order_by(files_visits.c.id.desc())
-            .limit(limit)
-            .offset(offset)
+            self._base_file_query().where(*conditions).order_by(files_visits.c.id.desc()).limit(limit).offset(offset)
         )
         rows = await self.fetch(query)
 
-        count_query = select(func.count()).select_from(
-            files_visits.join(files, files_visits.c.file_id == files.c.id)
-        )
+        count_query = select(func.count()).select_from(files_visits.join(files, files_visits.c.file_id == files.c.id))
         count_query = count_query.where(*conditions)
         total = await self.fetchval(count_query)
 

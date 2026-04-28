@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from uuid import UUID
 
 from litestar import Router, delete, get, patch, post
