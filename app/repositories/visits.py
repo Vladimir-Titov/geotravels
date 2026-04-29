@@ -107,9 +107,7 @@ class VisitsRepository(BaseEntityDBRepository):
             select(
                 visits_places.c.visit_id,
                 func.count(visits_places.c.id).label('places_total'),
-                func.count(visits_places.c.id)
-                .filter(visits_places.c.is_visited.is_(True))
-                .label('places_visited'),
+                func.count(visits_places.c.id).filter(visits_places.c.is_visited.is_(True)).label('places_visited'),
             )
             .where(visits_places.c.user_id == user_id)
             .group_by(visits_places.c.visit_id)

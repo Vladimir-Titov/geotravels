@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -204,6 +202,7 @@ def create_app(
             visits_repository=VisitsRepository(db_pool),
             visits_cities_repository=VisitsCitiesRepository(db_pool),
             files_repository=FilesRepository(db_pool),
+            file_storage=request.app.state.file_storage,
         )
 
     def provide_visits_checklist_service(request: Request) -> VisitsChecklistService:

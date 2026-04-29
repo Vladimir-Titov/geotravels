@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from litestar import Router, post
 
 from app.services.auth import AuthService

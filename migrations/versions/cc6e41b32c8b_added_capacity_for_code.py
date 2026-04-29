@@ -6,8 +6,6 @@ Create Date: 2026-03-22 14:14:28.516022
 
 """
 
-from __future__ import annotations
-
 import hashlib
 
 import sqlalchemy as sa

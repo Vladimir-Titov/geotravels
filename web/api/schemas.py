@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -7,9 +5,9 @@ from typing import Any
 from uuid import UUID
 
 from litestar.datastructures import UploadFile
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.tables import CheckListStatus, VisitStatus, VisitVisibility
+from app.models.tables import CheckListStatus, FileVisibility, VisitStatus, VisitVisibility
 
 
 class OtpRequestSchema(BaseModel):
@@ -795,14 +793,38 @@ class FollowRequest(BaseModel):
     following_id: UUID
 
 
+ALLOWED_UPLOAD_IMAGE_TYPES = frozenset(
+    {
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+        'image/heic-sequence',
+        'image/heif-sequence',
+        'image/x-heic',
+        'image/x-heif',
+    }
+)
+
+
 class UploadFileRequest(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    visit_id: UUID
     file: UploadFile
     filename: str | None = None
     file_type: str | None = None
-    is_private: bool = False
+    visibility: FileVisibility = FileVisibility.PRIVATE
+
+    @field_validator('file')
+    @classmethod
+    def validate_file_content_type(cls, file: UploadFile) -> UploadFile:
+        content_type = (file.content_type or '').split(';', maxsplit=1)[0].strip().lower()
+        if content_type not in ALLOWED_UPLOAD_IMAGE_TYPES:
+            allowed_types = ', '.join(sorted(ALLOWED_UPLOAD_IMAGE_TYPES))
+            raise ValueError(f'file content type must be one of: {allowed_types}')
+        return file
 
 
 class UpdateFileRequest(BaseModel):

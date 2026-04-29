@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from contextvars import ContextVar

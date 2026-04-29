@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from settings import to_sync_database_url
 
 

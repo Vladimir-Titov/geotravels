@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import asyncio
 import logging
 import re
 from uuid import UUID, uuid7
@@ -8,8 +7,9 @@ from app.models.tables import FileVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
-from app.services.exceptions import NotFoundError, ServiceError
+from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
+from helpers import InvalidImageError, optimaze_image
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class FilesService:
         content: bytes,
         filename: str | None = None,
         file_type: str | None = None,
-        is_private: bool = False,
+        visibility: FileVisibility = FileVisibility.PRIVATE,
     ) -> dict:
         if not content:
             raise ServiceError('File content is empty')
@@ -58,11 +58,15 @@ class FilesService:
         await self._ensure_visit_owned(visit_id=visit_id, user_id=user_id)
         normalized_filename = self._normalize_filename(filename)
         object_key = self._build_object_key(user_id=user_id, filename=normalized_filename)
+        try:
+            content = await asyncio.to_thread(optimaze_image, raw_image=content, quality=80)
+        except InvalidImageError:
+            raise InvalidFileError('Uploaded file is not an image')
 
         file_url = await self.file_storage.upload_file(
             key=object_key,
             content=content,
-            file_type=file_type,
+            file_type='image/webp',  # todo: fix in the future. make it simple
         )
 
         try:
@@ -70,14 +74,13 @@ class FilesService:
                 file_row = await self.files_repository.create_file(
                     file_url=file_url,
                     filename=normalized_filename,
-                    file_type=file_type,
+                    file_type='image/webp',
                 )
                 await self.files_repository.create_file_visit_relation(
                     file_id=file_row['id'],
                     visit_id=visit_id,
                     user_id=user_id,
-                    is_private=is_private,
-                    visibility=FileVisibility.PRIVATE if is_private else FileVisibility.PUBLIC,
+                    visibility=visibility,
                 )
         except Exception:
             logger.exception('Failed to persist file metadata, rolling back uploaded object')

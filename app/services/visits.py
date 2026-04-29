@@ -1,16 +1,21 @@
-from __future__ import annotations
-
+import asyncio
+import logging
+import re
 from collections import Counter
 from datetime import date
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid7
 
-from app.models.tables import VisitStatus, VisitVisibility
+from app.models.tables import FileVisibility, VisitStatus, VisitVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
-from app.services.exceptions import NotFoundError, ServiceError
+from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
+from app.services.file_storage import FileStorage
+from helpers import InvalidImageError, optimaze_image
+
+logger = logging.getLogger(__name__)
 
 
 class VisitsService:
@@ -28,10 +33,12 @@ class VisitsService:
         visits_repository: VisitsRepository,
         visits_cities_repository: VisitsCitiesRepository,
         files_repository: FilesRepository,
+        file_storage: FileStorage | None = None,
     ):
         self.visits_repository = visits_repository
         self.visits_cities_repository = visits_cities_repository
         self.files_repository = files_repository
+        self.file_storage = file_storage
 
     def _normalize_title(self, title: str | None) -> str:
         if title is None:
@@ -84,6 +91,24 @@ class VisitsService:
     def _validate_date_range(date_from: date | None, date_to: date | None) -> None:
         if date_from is not None and date_to is not None and date_to < date_from:
             raise ServiceError('date_to cannot be earlier than date_from')
+
+    @staticmethod
+    def _normalize_upload_filename(filename: str | None) -> str:
+        candidate = (filename or 'photo.webp').strip()
+        if not candidate:
+            raise ServiceError('Filename cannot be empty')
+
+        candidate = re.sub(r'[^A-Za-z0-9._-]+', '_', candidate)
+        stem = candidate.rsplit('.', 1)[0] if '.' in candidate else candidate
+        stem = stem.strip('._-') or 'photo'
+        normalized = f'{stem}.webp'
+        if len(normalized) > 64:
+            raise ServiceError('Filename is too long, max length is 64')
+        return normalized
+
+    @staticmethod
+    def _build_file_object_key(user_id: UUID, filename: str) -> str:
+        return f'{user_id}/{uuid7()}_{filename}'
 
     async def _get_visit_or_raise(self, visit_id: UUID, user_id: UUID) -> dict[str, Any]:
         visit = await self.visits_repository.search_first_row(id=visit_id, user_id=user_id)
@@ -272,6 +297,60 @@ class VisitsService:
     async def delete_visit_by_id(self, visit_id: UUID, user_id: UUID) -> None:
         await self._get_visit_or_raise(visit_id=visit_id, user_id=user_id)
         await self.visits_repository.delete_by_id(entity_id=visit_id)
+
+    async def upload_photo_for_visit(
+        self,
+        visit_id: UUID,
+        user_id: UUID,
+        content: bytes,
+        filename: str | None = None,
+        visibility: FileVisibility = FileVisibility.PRIVATE,
+    ) -> dict[str, Any]:
+        if not content:
+            raise ServiceError('File content is empty')
+        if self.file_storage is None:
+            raise RuntimeError('File storage is not configured for visit uploads')
+
+        await self._get_visit_or_raise(visit_id=visit_id, user_id=user_id)
+        normalized_filename = self._normalize_upload_filename(filename)
+        object_key = self._build_file_object_key(user_id=user_id, filename=normalized_filename)
+
+        try:
+            optimized_content = await asyncio.to_thread(optimaze_image, raw_image=content, quality=80)
+        except InvalidImageError as exc:
+            raise InvalidFileError('Uploaded file is not an image') from exc
+
+        file_url = await self.file_storage.upload_file(
+            key=object_key,
+            content=optimized_content,
+            file_type='image/webp',
+        )
+
+        try:
+            async with self.visits_repository.transaction():
+                file_row = await self.files_repository.create_file(
+                    file_url=file_url,
+                    filename=normalized_filename,
+                    file_type='image/webp',
+                )
+                await self.files_repository.create_file_visit_relation(
+                    file_id=file_row['id'],
+                    visit_id=visit_id,
+                    user_id=user_id,
+                    visibility=visibility,
+                )
+        except Exception:
+            logger.exception('Failed to persist visit photo metadata, rolling back uploaded object')
+            try:
+                await self.file_storage.delete_file(file_url)
+            except Exception:  # noqa: BLE001
+                logger.exception('Failed to rollback uploaded visit photo from storage')
+            raise
+
+        created = await self.files_repository.get_owned_file(file_id=file_row['id'], user_id=user_id)
+        if not created:
+            raise RuntimeError('File has been created but relation is missing')
+        return created
 
     @staticmethod
     def _file_download_url(file_id: UUID | None) -> str | None:
