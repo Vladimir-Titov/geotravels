@@ -1,5 +1,5 @@
 PY_DEPS = 'requirements/out.txt'
-PYTEST_CMD = python -m pytest
+PYTEST_CMD = uv run python -m pytest
 
 upgrade-pip:
 	@python -m pip install --upgrade pip setuptools
