@@ -1,4 +1,5 @@
 from decimal import Decimal
+from urllib.parse import urlencode
 from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
@@ -927,7 +928,7 @@ def test_client_geo_endpoints_require_user_auth(client, settings) -> None:
 
 
 def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
-    async def _mock_search_countries(self, *, query, country_codes, limit, offset):  # noqa: ARG001
+    async def _mock_search_countries(self, *, query, country_codes, limit, offset, lang):  # noqa: ARG001
         return [
             {
                 'iso_a2': 'ZZ',
@@ -954,10 +955,51 @@ def test_client_geo_countries_fallback_to_geonames_and_persists_meta(client, set
     assert second_payload['items'][0]['meta']['geonameId'] == 999001
 
 
+def test_client_geo_countries_searches_localized_labels_and_keeps_canonical_name(
+    client,
+    settings,
+    monkeypatch,
+) -> None:
+    calls = {'count': 0}
+
+    async def _mock_search_countries(self, *, query, country_codes, limit, offset, lang):  # noqa: ARG001
+        calls['count'] += 1
+        assert query == 'Росс'
+        assert lang == 'ru'
+        return [
+            {
+                'iso_a2': 'RU',
+                'name': 'Russia',
+                'labels': {'en': 'Russia', 'ru': 'Россия'},
+                'meta': {'geonameId': 2017370, 'countryCode': 'RU', 'countryName': 'Россия'},
+            }
+        ]
+
+    monkeypatch.setattr(GeoNamesClient, 'search_countries', _mock_search_countries)
+    tokens = _get_tokens(client, 'client-geo-country-labels@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+    query = urlencode({'limit': 5, 'offset': 0, 'lang': 'ru', 'name_ilike': '%Росс%'})
+
+    first = client.get(f'/api/v1/geo/countries?{query}', headers=headers)
+    assert first.status_code == 200
+    first_item = first.json()['items'][0]
+    assert first_item['iso_a2'] == 'RU'
+    assert first_item['name'] == 'Russia'
+    assert first_item['display_name'] == 'Россия'
+    assert first_item['labels']['ru'] == 'Россия'
+
+    second = client.get(f'/api/v1/geo/countries?{query}', headers=headers)
+    assert second.status_code == 200
+    second_item = second.json()['items'][0]
+    assert second_item['name'] == 'Russia'
+    assert second_item['display_name'] == 'Россия'
+    assert calls['count'] == 1
+
+
 def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settings, monkeypatch) -> None:
     calls = {'count': 0}
 
-    async def _mock_search_cities(self, *, query, country_code, limit, offset):  # noqa: ARG001
+    async def _mock_search_cities(self, *, query, country_code, limit, offset, lang):  # noqa: ARG001
         calls['count'] += 1
         return [
             {
@@ -989,6 +1031,53 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
     second_payload = second.json()
     assert second_payload['pagination']['total'] == 1
     assert second_payload['items'][0]['name'] == 'Paris'
+    assert calls['count'] == 1
+
+
+def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(
+    client,
+    settings,
+    monkeypatch,
+) -> None:
+    calls = {'count': 0}
+
+    async def _mock_search_cities(self, *, query, country_code, limit, offset, lang):  # noqa: ARG001
+        calls['count'] += 1
+        assert query == 'Рим'
+        assert country_code == 'IT'
+        assert lang == 'ru'
+        return [
+            {
+                'id': UUID('8168e736-cc26-56f4-a573-1a6e7e5e0ea7'),
+                'country_code': 'IT',
+                'name': 'Rome',
+                'name_normalized': 'rome',
+                'latitude': Decimal('41.8931'),
+                'longitude': Decimal('12.4828'),
+                'population': 2873000,
+                'labels': {'en': 'Rome', 'ru': 'Рим'},
+                'meta': {'geonameId': 3169070, 'countryCode': 'IT', 'countryName': 'Италия', 'name': 'Рим'},
+            }
+        ]
+
+    monkeypatch.setattr(GeoNamesClient, 'search_cities', _mock_search_cities)
+    tokens = _get_tokens(client, 'client-geo-city-labels@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+    query = urlencode({'limit': 5, 'offset': 0, 'lang': 'ru', 'country_code': 'IT', 'name_ilike': '%Рим%'})
+
+    first = client.get(f'/api/v1/geo/cities?{query}', headers=headers)
+    assert first.status_code == 200
+    first_item = first.json()['items'][0]
+    assert first_item['country_code'] == 'IT'
+    assert first_item['name'] == 'Rome'
+    assert first_item['display_name'] == 'Рим'
+    assert first_item['labels']['ru'] == 'Рим'
+
+    second = client.get(f'/api/v1/geo/cities?{query}', headers=headers)
+    assert second.status_code == 200
+    second_item = second.json()['items'][0]
+    assert second_item['name'] == 'Rome'
+    assert second_item['display_name'] == 'Рим'
     assert calls['count'] == 1
 
 
