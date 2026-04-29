@@ -750,6 +750,7 @@ def test_visits_places_files_crud_and_constraints(client, settings) -> None:
     assert download_after_delete.status_code == 200
     assert download_after_delete.content
     assert download_after_delete.headers['content-type'] == 'image/webp'
+    assert download_after_delete.headers['cache-control'] == 'private, max-age=604800'
 
 
 def test_files_crud_for_owner(client, settings) -> None:
@@ -778,6 +779,7 @@ def test_files_crud_for_owner(client, settings) -> None:
     assert download_response.content
     assert download_response.headers['content-type'] == 'image/webp'
     assert download_response.headers['content-disposition'] == 'attachment; filename="paris.webp"'
+    assert download_response.headers['cache-control'] == 'private, max-age=604800'
 
     mine_response = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
     assert mine_response.status_code == 200

@@ -59,7 +59,7 @@ async def download_file(
 ) -> Response[bytes]:
     file_data = await files_service.download_file(file_id=file_id, user_id=current_user.id)
 
-    headers: dict[str, str] = {}
+    headers: dict[str, str] = {'Cache-Control': 'private, max-age=604800'}
     if file_data['filename']:
         headers['Content-Disposition'] = f'attachment; filename="{file_data["filename"]}"'
 
