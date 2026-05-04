@@ -151,7 +151,7 @@ class ClientGeoSearchService:
 
             countries[country_code] = {
                 'iso_a2': country_code,
-                'name': country_name if lang == 'en' else country_code,
+                'name': country_name,
                 'labels': {lang: country_name} if country_name else None,
                 'meta': {'countryCode': country_code, 'countryName': country_name, 'source': 'geonames-city-search'},
             }
@@ -199,15 +199,19 @@ class ClientGeoSearchService:
                 if not existing:
                     continue
 
+                update_payload = {
+                    'meta': self._serialize_json_field(
+                        self._merge_json_objects(existing.get('meta'), country_payload.get('meta'))
+                    ),
+                    'labels': self._serialize_json_field(
+                        self._merge_json_objects(existing.get('labels'), country_payload.get('labels'))
+                    ),
+                }
+                if self._should_replace_country_name(existing.get('name'), iso_a2=iso_a2):
+                    update_payload['name'] = country_payload['name']
+
                 await self.countries_repository.update(
-                    {
-                        'meta': self._serialize_json_field(
-                            self._merge_json_objects(existing.get('meta'), country_payload.get('meta'))
-                        ),
-                        'labels': self._serialize_json_field(
-                            self._merge_json_objects(existing.get('labels'), country_payload.get('labels'))
-                        ),
-                    },
+                    update_payload,
                     iso_a2=iso_a2,
                 )
                 updated += 1
@@ -321,6 +325,12 @@ class ClientGeoSearchService:
         incoming_dict = incoming if isinstance(incoming, dict) else {}
         merged = {**current_dict, **incoming_dict}
         return merged or None
+
+    def _should_replace_country_name(self, current_name: Any, *, iso_a2: str) -> bool:
+        if not isinstance(current_name, str):
+            return True
+        normalized = current_name.strip()
+        return not normalized or normalized.upper() == iso_a2
 
     def _extract_query(self, filters: dict[str, Any], keys: tuple[str, ...]) -> str | None:
         for key in keys:

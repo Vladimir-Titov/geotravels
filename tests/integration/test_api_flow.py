@@ -11,6 +11,7 @@ from app.models.tables import (
     VisitVisibility,
     achievements,
     cities,
+    countries,
     users_achievements,
 )
 from app.services.geonames import GeoNamesClient
@@ -1064,6 +1065,13 @@ def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(
     tokens = _get_tokens(client, 'client-geo-city-labels@example.com', settings.otp.otp_mock_code)
     headers = _auth_headers(tokens)
     query = urlencode({'limit': 5, 'offset': 0, 'lang': 'ru', 'country_code': 'IT', 'name_ilike': '%Рим%'})
+    sync_engine = create_engine(to_sync_database_url(settings.db.database_url), future=True)
+    try:
+        with sync_engine.connect() as conn:
+            conn.execute(countries.update().where(countries.c.iso_a2 == 'IT').values(name='IT'))
+            conn.commit()
+    finally:
+        sync_engine.dispose()
 
     first = client.get(f'/api/v1/geo/cities?{query}', headers=headers)
     assert first.status_code == 200
@@ -1079,6 +1087,12 @@ def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(
     assert second_item['name'] == 'Rome'
     assert second_item['display_name'] == 'Рим'
     assert calls['count'] == 1
+
+    countries_response = client.get('/api/v1/geo/countries?limit=5&offset=0&iso_a2=IT', headers=headers)
+    assert countries_response.status_code == 200
+    country_item = countries_response.json()['items'][0]
+    assert country_item['name'] == 'Италия'
+    assert country_item['name'] != 'IT'
 
 
 def test_client_geo_repeated_requests_are_allowed(client, settings) -> None:
