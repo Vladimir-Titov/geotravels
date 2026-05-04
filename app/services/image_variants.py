@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
@@ -57,6 +58,8 @@ class ImageVariantService:
         self.file_storage = file_storage
         self.transformer = transformer
         self._locks: dict[str, asyncio.Lock] = {}
+        self._lock_ref_counts: dict[str, int] = {}
+        self._locks_guard = asyncio.Lock()
 
     def _variant_url(self, file_id: UUID, variant: ImageVariant) -> str:
         return self.file_storage.build_file_url(f'variants/{file_id}/{variant.value}.webp')
@@ -71,6 +74,28 @@ class ImageVariantService:
             return f'/api/v1/files/{file_id}/download'
         return f'/api/v1/files/{file_id}/download?variant={variant.value}'
 
+    async def _run_with_variant_lock(
+        self,
+        lock_key: str,
+        action: Callable[[], Awaitable[ImageVariantData]],
+    ) -> ImageVariantData:
+        async with self._locks_guard:
+            lock = self._locks.setdefault(lock_key, asyncio.Lock())
+            self._lock_ref_counts[lock_key] = self._lock_ref_counts.get(lock_key, 0) + 1
+
+        await lock.acquire()
+        try:
+            return await action()
+        finally:
+            lock.release()
+            async with self._locks_guard:
+                remaining = self._lock_ref_counts.get(lock_key, 1) - 1
+                if remaining <= 0:
+                    self._lock_ref_counts.pop(lock_key, None)
+                    self._locks.pop(lock_key, None)
+                else:
+                    self._lock_ref_counts[lock_key] = remaining
+
     async def get_variant(self, file_id: UUID, file_url: str, variant: ImageVariant) -> ImageVariantData:
         if variant == ImageVariant.FULL:
             content = await self.file_storage.download_file(file_url)
@@ -83,9 +108,8 @@ class ImageVariantService:
 
         variant_url = self._variant_url(file_id=file_id, variant=variant)
         lock_key = f'{file_id}:{variant.value}'
-        lock = self._locks.setdefault(lock_key, asyncio.Lock())
 
-        async with lock:
+        async def load_or_generate_variant() -> ImageVariantData:
             if await self.file_storage.exists_file(variant_url):
                 content = await self.file_storage.download_file(variant_url)
                 return ImageVariantData(
@@ -118,6 +142,8 @@ class ImageVariantService:
                 etag=self._etag(content, variant),
                 variant=variant,
             )
+
+        return await self._run_with_variant_lock(lock_key, load_or_generate_variant)
 
     async def delete_variants(self, file_id: UUID) -> None:
         for variant in (ImageVariant.PREVIEW, ImageVariant.THUMB):

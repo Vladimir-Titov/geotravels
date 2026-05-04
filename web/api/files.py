@@ -5,6 +5,7 @@ from litestar.openapi.datastructures import ResponseSpec
 
 from app.services.current_user import CurrentUser
 from app.services.files import FilesService
+from app.services.http_cache import matches_etag
 from app.services.image_variants import ImageVariant
 from web.api.schemas import (
     FilesListRequest,
@@ -14,12 +15,6 @@ from web.api.schemas import (
     VisitFileResponse,
 )
 from web.utils import from_query
-
-
-def _matches_etag(if_none_match: str | None, etag: str) -> bool:
-    if not if_none_match:
-        return False
-    return any(candidate.strip() == etag for candidate in if_none_match.split(','))
 
 
 @patch('/{file_id:uuid}', tags=['files'], security=[{'user_auth': []}])
@@ -76,7 +71,7 @@ async def download_file(
     if file_data['filename']:
         headers['Content-Disposition'] = f'attachment; filename="{file_data["filename"]}"'
 
-    if _matches_etag(request.headers.get('If-None-Match'), file_data['etag']):
+    if matches_etag(request.headers.get('If-None-Match'), file_data['etag']):
         return Response(
             content=b'',
             status_code=304,

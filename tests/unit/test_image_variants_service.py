@@ -74,6 +74,8 @@ async def test_image_variant_service_generates_missing_variant_once() -> None:
     assert storage.uploads[variant_key] == 1
     assert storage.downloads['uploads/photo.webp'] == 1
     assert storage.downloads[variant_key] == 1
+    assert service._locks == {}
+    assert service._lock_ref_counts == {}
     assert first.content_type == 'image/webp'
     assert second.content == storage.objects[variant_key]
 
@@ -92,3 +94,5 @@ async def test_image_variant_service_uses_existing_variant_without_reading_full_
 
     assert result.content == variant_content
     assert storage.downloads == {f'variants/{file_id}/thumb.webp': 1}
+    assert service._locks == {}
+    assert service._lock_ref_counts == {}
