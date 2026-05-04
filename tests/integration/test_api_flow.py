@@ -470,7 +470,7 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
 
     memory_card = next(item for item in visited_payload['items'] if item['id'] == memory_visit['id'])
     assert memory_card['date_from'] is None
-    assert memory_card['cover_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert memory_card['cover_url'] == f'/api/v1/files/{photo["id"]}/download?variant=thumb'
     assert memory_card['photos_count'] == 1
     assert memory_card['checklist_total'] == 1
     assert memory_card['checklist_done'] == 1
@@ -487,8 +487,10 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
     details = client.get(f'/api/v1/visits/{memory_visit["id"]}/details', headers=auth_headers)
     assert details.status_code == 200
     details_payload = details.json()
-    assert details_payload['visit']['cover_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert details_payload['visit']['cover_url'] == f'/api/v1/files/{photo["id"]}/download?variant=thumb'
     assert details_payload['photos'][0]['file_url'] == f'/api/v1/files/{photo["id"]}/download'
+    assert details_payload['photos'][0]['thumbnail_url'] == f'/api/v1/files/{photo["id"]}/download?variant=thumb'
+    assert details_payload['photos'][0]['preview_url'] == f'/api/v1/files/{photo["id"]}/download?variant=preview'
     assert details_payload['checklist'][0]['status'] == CheckListStatus.DONE
     assert details_payload['places'][0]['is_visited'] is True
     assert details_payload['cities'][0]['name'] == 'Paris'
@@ -778,6 +780,21 @@ def test_files_crud_for_owner(client, settings) -> None:
     assert download_response.content
     assert download_response.headers['content-type'] == 'image/webp'
     assert download_response.headers['content-disposition'] == 'attachment; filename="paris.webp"'
+    assert download_response.headers['cache-control'] == 'private, max-age=3600'
+    assert download_response.headers['etag']
+
+    cached_response = client.get(
+        f'/api/v1/files/{created_file["id"]}/download',
+        headers={**auth_headers, 'If-None-Match': download_response.headers['etag']},
+    )
+    assert cached_response.status_code == 304
+
+    thumb_response = client.get(f'/api/v1/files/{created_file["id"]}/download?variant=thumb', headers=auth_headers)
+    assert thumb_response.status_code == 200
+    assert thumb_response.content
+    assert thumb_response.headers['content-type'] == 'image/webp'
+    assert thumb_response.headers['cache-control'] == 'private, max-age=86400'
+    assert thumb_response.headers['etag']
 
     mine_response = client.get('/api/v1/files/mine?limit=10&offset=0', headers=auth_headers)
     assert mine_response.status_code == 200

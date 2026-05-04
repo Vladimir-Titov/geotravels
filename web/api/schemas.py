@@ -744,6 +744,8 @@ class VisitDetailsVisitResponse(VisitEventResponse):
 class VisitDetailsPhotoResponse(BaseModel):
     id: UUID
     file_url: str
+    thumbnail_url: str | None = None
+    preview_url: str | None = None
     filename: str | None = None
     file_type: str | None = None
     is_private: bool

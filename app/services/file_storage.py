@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 
 class FileStorage(ABC):
     @abstractmethod
+    def build_file_url(self, key: str) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
     async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def exists_file(self, file_url: str) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -45,7 +53,7 @@ class S3FileStorage(FileStorage):
             config=Config(s3={'addressing_style': 'path'}),
         )
 
-    def _build_file_url(self, key: str) -> str:
+    def build_file_url(self, key: str) -> str:
         return f's3://{self._settings.s3_bucket_name}/{key}'
 
     def _extract_key(self, file_url: str) -> str:
@@ -78,7 +86,19 @@ class S3FileStorage(FileStorage):
                 Body=content,
                 ContentType=file_type or 'application/octet-stream',
             )
-        return self._build_file_url(key)
+        return self.build_file_url(key)
+
+    async def exists_file(self, file_url: str) -> bool:
+        key = self._extract_key(file_url)
+        async with self._client() as client:
+            try:
+                await client.head_object(Bucket=self._settings.s3_bucket_name, Key=key)
+                return True
+            except ClientError as exc:
+                error_code = str(exc.response.get('Error', {}).get('Code', ''))
+                if error_code in {'404', 'NoSuchKey', 'NotFound'}:
+                    return False
+                raise
 
     async def delete_file(self, file_url: str) -> None:
         key = self._extract_key(file_url)

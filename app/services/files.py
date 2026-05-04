@@ -9,6 +9,7 @@ from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
 from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
+from app.services.image_variants import ImageVariant, ImageVariantData, ImageVariantService
 from helpers import InvalidImageError, optimaze_image
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,12 @@ class FilesService:
         files_repository: FilesRepository,
         visits_repository: VisitsRepository,
         file_storage: FileStorage,
+        image_variant_service: ImageVariantService,
     ):
         self.files_repository = files_repository
         self.visits_repository = visits_repository
         self.file_storage = file_storage
+        self.image_variant_service = image_variant_service
 
     def _normalize_filename(self, filename: str | None) -> str:
         candidate = (filename or 'photo.jpg').strip()
@@ -127,21 +130,28 @@ class FilesService:
         if should_delete_binary:
             try:
                 await self.file_storage.delete_file(existing['file_url'])
+                await self.image_variant_service.delete_variants(existing['id'])
             except Exception:  # noqa: BLE001
                 logger.exception('Failed to remove file from storage for %s', existing['file_url'])
 
         return existing
 
-    async def download_file(self, file_id: UUID, user_id: UUID) -> dict:
+    async def download_file(self, file_id: UUID, user_id: UUID, variant: ImageVariant = ImageVariant.FULL) -> dict:
         existing = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
         if not existing:
             raise NotFoundError('File not found')
 
-        content = await self.file_storage.download_file(existing['file_url'])
+        variant_data: ImageVariantData = await self.image_variant_service.get_variant(
+            file_id=file_id,
+            file_url=existing['file_url'],
+            variant=variant,
+        )
         return {
-            'content': content,
+            'content': variant_data.content,
             'filename': existing.get('filename'),
-            'file_type': existing.get('file_type'),
+            'file_type': variant_data.content_type or existing.get('file_type'),
+            'etag': variant_data.etag,
+            'variant': variant_data.variant,
         }
 
     async def list_my_files(self, user_id: UUID, limit: int, offset: int, visit_id: UUID | None) -> PaginatedResponse:

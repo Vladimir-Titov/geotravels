@@ -13,6 +13,7 @@ from app.repositories.visits import VisitsRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
 from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
+from app.services.image_variants import ImageVariant
 from helpers import InvalidImageError, optimaze_image
 
 logger = logging.getLogger(__name__)
@@ -353,8 +354,12 @@ class VisitsService:
         return created
 
     @staticmethod
-    def _file_download_url(file_id: UUID | None) -> str | None:
-        return f'/api/v1/files/{file_id}/download' if file_id else None
+    def _file_download_url(file_id: UUID | None, variant: ImageVariant = ImageVariant.FULL) -> str | None:
+        if file_id is None:
+            return None
+        if variant == ImageVariant.FULL:
+            return f'/api/v1/files/{file_id}/download'
+        return f'/api/v1/files/{file_id}/download?variant={variant.value}'
 
     async def list_visit_cards(
         self,
@@ -381,7 +386,7 @@ class VisitsService:
         items: list[dict[str, Any]] = []
         for row in response.items:
             item = dict(row)
-            item['cover_url'] = self._file_download_url(item.pop('cover_file_id', None))
+            item['cover_url'] = self._file_download_url(item.pop('cover_file_id', None), ImageVariant.THUMB)
             items.append(item)
         return PaginatedResponse(items=items, pagination=response.pagination)
 
@@ -408,13 +413,15 @@ class VisitsService:
                 }
             ]
 
-        visit['cover_url'] = self._file_download_url(visit.get('cover_file_id'))
+        visit['cover_url'] = self._file_download_url(visit.get('cover_file_id'), ImageVariant.THUMB)
         return {
             'visit': visit,
             'photos': [
                 {
                     **photo,
                     'file_url': self._file_download_url(photo['id']),
+                    'thumbnail_url': self._file_download_url(photo['id'], ImageVariant.THUMB),
+                    'preview_url': self._file_download_url(photo['id'], ImageVariant.PREVIEW),
                 }
                 for photo in photos
             ],
