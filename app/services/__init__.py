@@ -4,6 +4,7 @@ from app.services.client_geo_search import ClientGeoSearchService
 from app.services.countries import CountriesService
 from app.services.files import FilesService
 from app.services.followers import FollowersService
+from app.services.image_variants import ImageTransformer, ImageVariant, ImageVariantService
 from app.services.otp_sender import ResendOTPSender
 from app.services.users import UsersService
 from app.services.visits import VisitsService
@@ -18,6 +19,9 @@ __all__ = [
     'CountriesService',
     'FilesService',
     'FollowersService',
+    'ImageTransformer',
+    'ImageVariant',
+    'ImageVariantService',
     'ResendOTPSender',
     'UsersService',
     'VisitsService',

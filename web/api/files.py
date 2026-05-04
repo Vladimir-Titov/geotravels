@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from litestar import Response, Router, delete, get, patch
+from litestar import Request, Response, Router, delete, get, patch
 from litestar.openapi.datastructures import ResponseSpec
 
 from app.services.current_user import CurrentUser
 from app.services.files import FilesService
+from app.services.image_variants import ImageVariant
 from web.api.schemas import (
     FilesListRequest,
     FilesListResponse,
@@ -13,6 +14,12 @@ from web.api.schemas import (
     VisitFileResponse,
 )
 from web.utils import from_query
+
+
+def _matches_etag(if_none_match: str | None, etag: str) -> bool:
+    if not if_none_match:
+        return False
+    return any(candidate.strip() == etag for candidate in if_none_match.split(','))
 
 
 @patch('/{file_id:uuid}', tags=['files'], security=[{'user_auth': []}])
@@ -56,12 +63,26 @@ async def download_file(
     file_id: UUID,
     files_service: FilesService,
     current_user: CurrentUser,
+    request: Request,
+    variant: ImageVariant = ImageVariant.FULL,
 ) -> Response[bytes]:
-    file_data = await files_service.download_file(file_id=file_id, user_id=current_user.id)
+    file_data = await files_service.download_file(file_id=file_id, user_id=current_user.id, variant=variant)
 
-    headers: dict[str, str] = {}
+    max_age = 86400 if variant in {ImageVariant.THUMB, ImageVariant.PREVIEW} else 3600
+    headers: dict[str, str] = {
+        'Cache-Control': f'private, max-age={max_age}',
+        'ETag': file_data['etag'],
+    }
     if file_data['filename']:
         headers['Content-Disposition'] = f'attachment; filename="{file_data["filename"]}"'
+
+    if _matches_etag(request.headers.get('If-None-Match'), file_data['etag']):
+        return Response(
+            content=b'',
+            status_code=304,
+            media_type=file_data['file_type'] or 'application/octet-stream',
+            headers=headers,
+        )
 
     return Response(
         content=file_data['content'],

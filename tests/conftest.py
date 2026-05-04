@@ -21,9 +21,16 @@ class TestFileStorage:
     def __init__(self) -> None:
         self._objects: dict[str, bytes] = {}
 
+    def build_file_url(self, key: str) -> str:
+        return f'memory://{key}'
+
     async def upload_file(self, key: str, content: bytes, file_type: str | None = None) -> str:  # noqa: ARG002
         self._objects[key] = content
-        return f'memory://{key}'
+        return self.build_file_url(key)
+
+    async def exists_file(self, file_url: str) -> bool:
+        key = file_url.removeprefix('memory://')
+        return key in self._objects
 
     async def delete_file(self, file_url: str) -> None:
         key = file_url.removeprefix('memory://')
