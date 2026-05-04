@@ -3,12 +3,12 @@ from litestar import Router, get
 from app.services.client_geo_search import ClientGeoSearchService
 from app.services.current_user import CurrentUser
 from web.api.schemas import (
-    CitiesListRequest,
-    CitiesListResponse,
-    CityResponse,
-    CountriesListRequest,
-    CountriesListResponse,
-    CountryResponse,
+    ClientGeoCitiesListRequest,
+    ClientGeoCitiesListResponse,
+    ClientGeoCityResponse,
+    ClientGeoCountriesListRequest,
+    ClientGeoCountriesListResponse,
+    ClientGeoCountryResponse,
     PaginationResponse,
 )
 from web.utils import from_query
@@ -18,16 +18,16 @@ from web.utils import from_query
     '/countries',
     tags=['client-geo'],
     security=[{'user_auth': []}],
-    dependencies={'filters': from_query(CountriesListRequest)},
+    dependencies={'filters': from_query(ClientGeoCountriesListRequest)},
 )
 async def list_client_countries(
     client_geo_search_service: ClientGeoSearchService,
     current_user: CurrentUser,  # noqa: ARG001
-    filters: CountriesListRequest,
-) -> CountriesListResponse:
-    data = await client_geo_search_service.search_countries(**filters.to_repo_filters())
-    return CountriesListResponse(
-        items=[CountryResponse(**country) for country in data.items],
+    filters: ClientGeoCountriesListRequest,
+) -> ClientGeoCountriesListResponse:
+    data = await client_geo_search_service.search_countries(lang=filters.normalized_lang, **filters.to_repo_filters())
+    return ClientGeoCountriesListResponse(
+        items=[ClientGeoCountryResponse(**country) for country in data.items],
         pagination=PaginationResponse(
             limit=data.pagination.limit,
             offset=data.pagination.offset,
@@ -40,16 +40,16 @@ async def list_client_countries(
     '/cities',
     tags=['client-geo'],
     security=[{'user_auth': []}],
-    dependencies={'filters': from_query(CitiesListRequest)},
+    dependencies={'filters': from_query(ClientGeoCitiesListRequest)},
 )
 async def list_client_cities(
     client_geo_search_service: ClientGeoSearchService,
     current_user: CurrentUser,  # noqa: ARG001
-    filters: CitiesListRequest,
-) -> CitiesListResponse:
-    data = await client_geo_search_service.search_cities(**filters.to_repo_filters())
-    return CitiesListResponse(
-        items=[CityResponse(**city) for city in data.items],
+    filters: ClientGeoCitiesListRequest,
+) -> ClientGeoCitiesListResponse:
+    data = await client_geo_search_service.search_cities(lang=filters.normalized_lang, **filters.to_repo_filters())
+    return ClientGeoCitiesListResponse(
+        items=[ClientGeoCityResponse(**city) for city in data.items],
         pagination=PaginationResponse(
             limit=data.pagination.limit,
             offset=data.pagination.offset,

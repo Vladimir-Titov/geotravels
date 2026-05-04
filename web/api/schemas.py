@@ -83,6 +83,27 @@ class CountriesListRequest(BaseListRequest):
     updated_notin: list[datetime] | None = field(default=None)
 
 
+def _normalize_client_geo_lang(value: str | None) -> str:
+    if not isinstance(value, str):
+        return 'en'
+    lang = value.strip().casefold().split('-', maxsplit=1)[0]
+    return lang if lang in {'en', 'ru'} else 'en'
+
+
+@dataclass(eq=False)
+class ClientGeoCountriesListRequest(CountriesListRequest):
+    lang: str | None = field(default=None)
+
+    def to_repo_filters(self) -> dict[str, Any]:
+        filters = super().to_repo_filters()
+        filters.pop('lang', None)
+        return filters
+
+    @property
+    def normalized_lang(self) -> str:
+        return _normalize_client_geo_lang(self.lang)
+
+
 @dataclass(eq=False)
 class CitiesListRequest(BaseListRequest):
     id: UUID | None = field(default=None)
@@ -155,6 +176,20 @@ class CitiesListRequest(BaseListRequest):
     updated_ge: datetime | None = field(default=None)
     updated_in: list[datetime] | None = field(default=None)
     updated_notin: list[datetime] | None = field(default=None)
+
+
+@dataclass(eq=False)
+class ClientGeoCitiesListRequest(CitiesListRequest):
+    lang: str | None = field(default=None)
+
+    def to_repo_filters(self) -> dict[str, Any]:
+        filters = super().to_repo_filters()
+        filters.pop('lang', None)
+        return filters
+
+    @property
+    def normalized_lang(self) -> str:
+        return _normalize_client_geo_lang(self.lang)
 
 
 @dataclass(eq=False)
@@ -517,6 +552,15 @@ class CountriesListResponse(BaseModel):
     pagination: PaginationResponse
 
 
+class ClientGeoCountryResponse(CountryResponse):
+    display_name: str
+
+
+class ClientGeoCountriesListResponse(BaseModel):
+    items: list[ClientGeoCountryResponse]
+    pagination: PaginationResponse
+
+
 class CityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -535,6 +579,15 @@ class CityResponse(BaseModel):
 
 class CitiesListResponse(BaseModel):
     items: list[CityResponse]
+    pagination: PaginationResponse
+
+
+class ClientGeoCityResponse(CityResponse):
+    display_name: str
+
+
+class ClientGeoCitiesListResponse(BaseModel):
+    items: list[ClientGeoCityResponse]
     pagination: PaginationResponse
 
 

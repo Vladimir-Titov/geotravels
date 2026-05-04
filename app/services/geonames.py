@@ -29,6 +29,7 @@ class GeoNamesClient:
         country_codes: list[str],
         limit: int,
         offset: int,
+        lang: str | None = None,
     ) -> list[dict[str, Any]]:
         if not self.username:
             return []
@@ -38,25 +39,28 @@ class GeoNamesClient:
             for code in country_codes:
                 payload = await self._request_json(
                     path='countryInfoJSON',
-                    params={'country': code},
+                    params=self._with_lang({'country': code}, lang),
                 )
                 rows.extend(payload.get('geonames', []))
-            return self._normalize_countries(rows)
+            return self._normalize_countries(rows, lang=lang)
 
         if not query:
             return []
 
         payload = await self._request_json(
             path='searchJSON',
-            params={
-                'q': query,
-                'featureCode': 'PCLI',
-                'maxRows': max(1, min(limit, 100)),
-                'startRow': max(offset, 0),
-                'style': 'FULL',
-            },
+            params=self._with_lang(
+                {
+                    'q': query,
+                    'featureCode': 'PCLI',
+                    'maxRows': max(1, min(limit, 100)),
+                    'startRow': max(offset, 0),
+                    'style': 'FULL',
+                },
+                lang,
+            ),
         )
-        return self._normalize_countries(payload.get('geonames', []))
+        return self._normalize_countries(payload.get('geonames', []), lang=lang)
 
     async def search_cities(
         self,
@@ -65,6 +69,7 @@ class GeoNamesClient:
         country_code: str | None,
         limit: int,
         offset: int,
+        lang: str | None = None,
     ) -> list[dict[str, Any]]:
         if not self.username:
             return []
@@ -82,8 +87,9 @@ class GeoNamesClient:
         if country_code:
             params['country'] = country_code
 
+        params = self._with_lang(params, lang)
         payload = await self._request_json(path='searchJSON', params=params)
-        return self._normalize_cities(payload.get('geonames', []))
+        return self._normalize_cities(payload.get('geonames', []), lang=lang)
 
     async def _request_json(self, *, path: str, params: dict[str, Any]) -> dict[str, Any]:
         if not self.username:
@@ -102,26 +108,33 @@ class GeoNamesClient:
             logger.warning('GeoNames request failed: %s', exc)
             return {}
 
-    def _normalize_countries(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _with_lang(self, params: dict[str, Any], lang: str | None) -> dict[str, Any]:
+        if lang:
+            return {**params, 'lang': lang}
+        return params
+
+    def _normalize_countries(self, rows: list[dict[str, Any]], *, lang: str | None = None) -> list[dict[str, Any]]:
         deduplicated: dict[str, dict[str, Any]] = {}
         for row in rows:
             if not isinstance(row, dict):
                 continue
 
             iso_a2 = str(row.get('countryCode', '')).upper().strip()
-            name = str(row.get('countryName') or row.get('name') or '').strip()
+            localized_name = self._first_text(row, ('countryName', 'name'))
+            name = self._first_text(row, ('toponymName', 'asciiName')) or localized_name
             if len(iso_a2) != 2 or not name:
                 continue
 
             deduplicated[iso_a2] = {
                 'iso_a2': iso_a2,
                 'name': name,
+                'labels': self._build_labels(canonical=name, localized=localized_name, lang=lang),
                 'meta': row,
             }
 
         return list(deduplicated.values())
 
-    def _normalize_cities(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _normalize_cities(self, rows: list[dict[str, Any]], *, lang: str | None = None) -> list[dict[str, Any]]:
         deduplicated: dict[UUID, dict[str, Any]] = {}
         for row in rows:
             if not isinstance(row, dict):
@@ -129,7 +142,8 @@ class GeoNamesClient:
 
             geoname_id = self._parse_int(row.get('geonameId'))
             country_code = str(row.get('countryCode', '')).upper().strip()
-            name = str(row.get('name', '')).strip()
+            localized_name = self._first_text(row, ('name',))
+            name = self._first_text(row, ('toponymName', 'asciiName')) or localized_name
             if geoname_id is None or len(country_code) != 2 or not name:
                 continue
 
@@ -143,10 +157,24 @@ class GeoNamesClient:
                 'latitude': self._parse_decimal(row.get('lat')),
                 'longitude': self._parse_decimal(row.get('lng')),
                 'population': self._parse_int(row.get('population')),
+                'labels': self._build_labels(canonical=name, localized=localized_name, lang=lang),
                 'meta': row,
             }
 
         return list(deduplicated.values())
+
+    def _first_text(self, row: dict[str, Any], keys: tuple[str, ...]) -> str:
+        for key in keys:
+            value = row.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ''
+
+    def _build_labels(self, *, canonical: str, localized: str, lang: str | None) -> dict[str, str]:
+        labels = {'en': canonical}
+        if lang:
+            labels[lang] = localized or canonical
+        return labels
 
     def _normalize_text(self, value: str) -> str:
         normalized = unicodedata.normalize('NFKD', value)
@@ -158,7 +186,7 @@ class GeoNamesClient:
             return None
         try:
             return Decimal(str(value))
-        except InvalidOperation, ValueError:
+        except (InvalidOperation, ValueError):
             return None
 
     def _parse_int(self, value: Any) -> int | None:
