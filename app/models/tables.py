@@ -111,9 +111,6 @@ visits = Table(
     Column('title', String(length=80), nullable=False),
     Column('description', Text, nullable=True),
     Column('visibility', String(length=16), nullable=False),
-    Column('date_from', Date, nullable=True),
-    Column('date_to', Date, nullable=True),
-    Column('city_id', Uuid(as_uuid=True), ForeignKey('cities.id', ondelete='SET NULL'), nullable=True),
     Column('trip_start', Date, nullable=True),
     Column('trip_end', Date, nullable=True),
     Column('status', String(length=16), nullable=False, server_default=VisitStatus.VISITED),
@@ -121,7 +118,6 @@ visits = Table(
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_user_id', 'user_id'),
     Index('idx_country_code', 'country_code'),
-    Index('idx_city_id', 'city_id'),
     Index('idx_visits_visibility', 'visibility'),
 )
 

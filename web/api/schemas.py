@@ -284,28 +284,25 @@ class VisitsListRequest(BaseListRequest):
     status_in: list[VisitStatus] | None = field(default=None)
     status_notin: list[VisitStatus] | None = field(default=None)
 
-    city_id: UUID | None = field(default=None)
-    city_id_ne: UUID | None = field(default=None)
-    city_id_in: list[UUID] | None = field(default=None)
-    city_id_notin: list[UUID] | None = field(default=None)
+    city_ids_in: list[UUID] | None = field(default=None)
 
-    date_from: date | None = field(default=None)
-    date_from_ne: date | None = field(default=None)
-    date_from_lt: date | None = field(default=None)
-    date_from_le: date | None = field(default=None)
-    date_from_gt: date | None = field(default=None)
-    date_from_ge: date | None = field(default=None)
-    date_from_in: list[date] | None = field(default=None)
-    date_from_notin: list[date] | None = field(default=None)
+    trip_start: date | None = field(default=None)
+    trip_start_ne: date | None = field(default=None)
+    trip_start_lt: date | None = field(default=None)
+    trip_start_le: date | None = field(default=None)
+    trip_start_gt: date | None = field(default=None)
+    trip_start_ge: date | None = field(default=None)
+    trip_start_in: list[date] | None = field(default=None)
+    trip_start_notin: list[date] | None = field(default=None)
 
-    date_to: date | None = field(default=None)
-    date_to_ne: date | None = field(default=None)
-    date_to_lt: date | None = field(default=None)
-    date_to_le: date | None = field(default=None)
-    date_to_gt: date | None = field(default=None)
-    date_to_ge: date | None = field(default=None)
-    date_to_in: list[date] | None = field(default=None)
-    date_to_notin: list[date] | None = field(default=None)
+    trip_end: date | None = field(default=None)
+    trip_end_ne: date | None = field(default=None)
+    trip_end_lt: date | None = field(default=None)
+    trip_end_le: date | None = field(default=None)
+    trip_end_gt: date | None = field(default=None)
+    trip_end_ge: date | None = field(default=None)
+    trip_end_in: list[date] | None = field(default=None)
+    trip_end_notin: list[date] | None = field(default=None)
 
     created: datetime | None = field(default=None)
     created_ne: datetime | None = field(default=None)
@@ -642,12 +639,10 @@ class MarkVisitRequest(BaseModel):
     description: str | None = None
     visibility: VisitVisibility = VisitVisibility.PRIVATE
     status: VisitStatus = VisitStatus.VISITED
-    date_from: date | None = None
-    date_to: date | None = None
+    trip_start: date | None = None
+    trip_end: date | None = None
     city_ids: list[UUID] | None = None
     cover_file_id: UUID | None = None
-
-    city_id: UUID | None = None  # backward compatibility (visit-v1)
 
 
 class UpdateVisitRequest(BaseModel):
@@ -658,12 +653,10 @@ class UpdateVisitRequest(BaseModel):
     description: str | None = None
     visibility: VisitVisibility | None = None
     status: VisitStatus | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    trip_start: date | None = None
+    trip_end: date | None = None
     city_ids: list[UUID] | None = None
     cover_file_id: UUID | None = None
-
-    city_id: UUID | None = None  # backward compatibility (visit-v1)
 
 
 class VisitEventResponse(BaseModel):
@@ -676,12 +669,11 @@ class VisitEventResponse(BaseModel):
     description: str | None = None
     visibility: VisitVisibility
     status: VisitStatus
-    date_from: date | None = None
-    date_to: date | None = None
+    trip_start: date | None = None
+    trip_end: date | None = None
     city_ids: list[UUID] = Field(default_factory=list)
     cover_file_id: UUID | None = None
 
-    city_id: UUID | None = None
     created: datetime
     updated: datetime
 
@@ -691,16 +683,21 @@ class VisitsListResponse(BaseModel):
     pagination: PaginationResponse
 
 
+class VisitCityResponse(BaseModel):
+    id: UUID
+    name: str
+    country_code: str
+
+
 class VisitCardResponse(BaseModel):
     id: UUID
     status: VisitStatus
     title: str
     country_code: str
     country_name: str | None = None
-    city_id: UUID | None = None
-    city_name: str | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    cities: list[VisitCityResponse] = Field(default_factory=list)
+    trip_start: date | None = None
+    trip_end: date | None = None
     cover_url: str | None = None
     photos_count: int
     checklist_total: int
@@ -790,7 +787,6 @@ class VisitPlaceResponse(BaseModel):
 
 class VisitDetailsVisitResponse(VisitEventResponse):
     country_name: str | None = None
-    city_name: str | None = None
     cover_url: str | None = None
 
 
@@ -805,18 +801,12 @@ class VisitDetailsPhotoResponse(BaseModel):
     is_cover: bool
 
 
-class VisitDetailsCityResponse(BaseModel):
-    id: UUID
-    name: str
-    country_code: str
-
-
 class VisitDetailsResponse(BaseModel):
     visit: VisitDetailsVisitResponse
     photos: list[VisitDetailsPhotoResponse]
     checklist: list[VisitChecklistResponse]
     places: list[VisitPlaceResponse]
-    cities: list[VisitDetailsCityResponse]
+    cities: list[VisitCityResponse]
 
 
 class VisitsPlacesListResponse(BaseModel):

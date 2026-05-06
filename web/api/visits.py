@@ -38,11 +38,10 @@ async def create_visit(
         description=data.description,
         visibility=data.visibility,
         status=data.status,
-        date_from=data.date_from,
-        date_to=data.date_to,
+        trip_start=data.trip_start,
+        trip_end=data.trip_end,
         city_ids=data.city_ids,
         cover_file_id=data.cover_file_id,
-        city_id=data.city_id,
     )
     return VisitEventResponse(**visit)
 
