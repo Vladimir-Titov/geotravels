@@ -89,7 +89,6 @@ cities = Table(
         nullable=False,
     ),
     Column('name', String(length=200), nullable=False),
-    Column('name_normalized', String(length=200), nullable=False),
     Column('latitude', Numeric(precision=9, scale=6), nullable=True),
     Column('longitude', Numeric(precision=9, scale=6), nullable=True),
     Column('population', BigInteger(), nullable=True),
@@ -98,8 +97,6 @@ cities = Table(
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_cities_country_code', 'country_code'),
-    Index('idx_cities_name_normalized', 'name_normalized'),
-    Index('idx_cities_country_name', 'country_code', 'name_normalized'),
 )
 
 visits = Table(

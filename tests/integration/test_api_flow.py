@@ -209,13 +209,11 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
                         'id': paris_id,
                         'country_code': 'FR',
                         'name': 'Paris',
-                        'name_normalized': 'paris',
                     },
                     {
                         'id': lyon_id,
                         'country_code': 'FR',
                         'name': 'Lyon',
-                        'name_normalized': 'lyon',
                     },
                 ],
             )
@@ -429,7 +427,6 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
                         'id': paris_id,
                         'country_code': 'FR',
                         'name': 'Paris',
-                        'name_normalized': 'paris',
                     }
                 ],
             )
@@ -1065,7 +1062,6 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
                 'id': UUID('05f1e4a3-0d4a-5ea0-a368-bf7e70f5b8ec'),
                 'country_code': 'FR',
                 'name': 'Paris',
-                'name_normalized': 'paris',
                 'latitude': Decimal('48.8566'),
                 'longitude': Decimal('2.3522'),
                 'population': 2148327,
@@ -1110,7 +1106,6 @@ def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(
                 'id': UUID('8168e736-cc26-56f4-a573-1a6e7e5e0ea7'),
                 'country_code': 'IT',
                 'name': 'Rome',
-                'name_normalized': 'rome',
                 'latitude': Decimal('41.8931'),
                 'longitude': Decimal('12.4828'),
                 'population': 2873000,

@@ -1,5 +1,4 @@
 import logging
-import unicodedata
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -153,7 +152,6 @@ class GeoNamesClient:
                 'id': city_id,
                 'country_code': country_code,
                 'name': name,
-                'name_normalized': self._normalize_text(name),
                 'latitude': self._parse_decimal(row.get('lat')),
                 'longitude': self._parse_decimal(row.get('lng')),
                 'population': self._parse_int(row.get('population')),
@@ -175,11 +173,6 @@ class GeoNamesClient:
         if lang:
             labels[lang] = localized or canonical
         return labels
-
-    def _normalize_text(self, value: str) -> str:
-        normalized = unicodedata.normalize('NFKD', value)
-        without_diacritics = ''.join(char for char in normalized if not unicodedata.combining(char))
-        return ' '.join(without_diacritics.casefold().split())
 
     def _parse_decimal(self, value: Any) -> Decimal | None:
         if value is None or value == '':

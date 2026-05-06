@@ -117,8 +117,8 @@ async def test_visit_city_ids_are_stored_in_link_table(db_pool) -> None:
         files_repository=FilesRepository(db_pool),
     )
 
-    await cities_repository.create(id=paris_id, country_code='FR', name='Paris', name_normalized='paris')
-    await cities_repository.create(id=lyon_id, country_code='FR', name='Lyon', name_normalized='lyon')
+    await cities_repository.create(id=paris_id, country_code='FR', name='Paris')
+    await cities_repository.create(id=lyon_id, country_code='FR', name='Lyon')
 
     created = await service.create_visit(
         user_id=user_id,

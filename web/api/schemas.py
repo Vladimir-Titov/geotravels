@@ -125,13 +125,6 @@ class CitiesListRequest(BaseListRequest):
     name_like: str | None = field(default=None)
     name_ilike: str | None = field(default=None)
 
-    name_normalized: str | None = field(default=None)
-    name_normalized_ne: str | None = field(default=None)
-    name_normalized_in: list[str] | None = field(default=None)
-    name_normalized_notin: list[str] | None = field(default=None)
-    name_normalized_like: str | None = field(default=None)
-    name_normalized_ilike: str | None = field(default=None)
-
     latitude: float | None = field(default=None)
     latitude_ne: float | None = field(default=None)
     latitude_lt: float | None = field(default=None)
@@ -564,7 +557,6 @@ class CityResponse(BaseModel):
     id: UUID
     country_code: str
     name: str
-    name_normalized: str
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     population: int | None = None

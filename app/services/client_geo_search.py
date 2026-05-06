@@ -64,9 +64,6 @@ class ClientGeoSearchService:
                     'name',
                     'name_ilike',
                     'name_like',
-                    'name_normalized',
-                    'name_normalized_ilike',
-                    'name_normalized_like',
                 ),
             ),
             country_code=self._extract_country_code(filters),
@@ -125,14 +122,14 @@ class ClientGeoSearchService:
                 lang=lang,
                 name_filter_name=filter_name,
                 name_filter_value=filter_value,
-                order_by='country_code,name_normalized,-population',
+                order_by='country_code,name,-population',
                 limit=limit,
                 offset=offset,
                 **self._without_filters(filters, NAME_LABEL_FILTERS),
             )
         else:
             response = await self.cities_repository.paginated_search(
-                order_by='country_code,name_normalized',
+                order_by='country_code,name',
                 limit=limit,
                 offset=offset,
                 **filters,
@@ -233,13 +230,11 @@ class ClientGeoSearchService:
                 continue
             country_code = str(item.get('country_code', '')).upper().strip()
             name = str(item.get('name', '')).strip()
-            name_normalized = str(item.get('name_normalized', '')).strip()
-            if len(country_code) != 2 or not name or not name_normalized:
+            if len(country_code) != 2 or not name:
                 continue
             deduplicated[city_id] = {
                 'country_code': country_code,
                 'name': name,
-                'name_normalized': name_normalized,
                 'latitude': item.get('latitude'),
                 'longitude': item.get('longitude'),
                 'population': item.get('population'),
@@ -276,7 +271,6 @@ class ClientGeoSearchService:
                     db_payload = {
                         'country_code': city_payload['country_code'],
                         'name': city_payload['name'],
-                        'name_normalized': city_payload['name_normalized'],
                         'latitude': city_payload.get('latitude'),
                         'longitude': city_payload.get('longitude'),
                         'population': city_payload.get('population'),
