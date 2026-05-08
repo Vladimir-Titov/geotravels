@@ -76,22 +76,15 @@ class VisitsService:
     def _resolve_city_ids(
         self,
         city_ids: list[UUID] | None,
-        city_id: UUID | None,
     ) -> list[UUID]:
         if city_ids is not None:
             return self._deduplicate_city_ids(city_ids)
-        if city_id is None:
-            return []
-        return [city_id]
+        return []
 
     @staticmethod
-    def _resolve_primary_city_id(city_ids: list[UUID]) -> UUID | None:
-        return city_ids[0] if city_ids else None
-
-    @staticmethod
-    def _validate_date_range(date_from: date | None, date_to: date | None) -> None:
-        if date_from is not None and date_to is not None and date_to < date_from:
-            raise ServiceError('date_to cannot be earlier than date_from')
+    def _validate_date_range(trip_start: date | None, trip_end: date | None) -> None:
+        if trip_start is not None and trip_end is not None and trip_end < trip_start:
+            raise ServiceError('trip_end cannot be earlier than trip_start')
 
     @staticmethod
     def _normalize_upload_filename(filename: str | None) -> str:
@@ -143,16 +136,12 @@ class VisitsService:
             item = dict(row)
 
             city_ids = city_ids_by_visit.get(item['id']) or []
-            if not city_ids and item.get('city_id') is not None:
-                city_ids = [item['city_id']]
             city_ids = self._deduplicate_city_ids(city_ids)
 
             item['title'] = item.get('title') or self.DEFAULT_TITLE
             item['visibility'] = item.get('visibility') or self.DEFAULT_VISIBILITY
             item['status'] = item.get('status') or VisitStatus.VISITED
-            item['date_from'] = item.get('date_from')
             item['city_ids'] = city_ids
-            item['city_id'] = self._resolve_primary_city_id(city_ids)
             item['cover_file_id'] = cover_file_ids_by_visit.get(item['id'])
 
             enriched.append(item)
@@ -171,20 +160,17 @@ class VisitsService:
         description: str | None = None,
         visibility: VisitVisibility = VisitVisibility.PRIVATE,
         status: VisitStatus | None = None,
-        date_from: date | None = None,
-        date_to: date | None = None,
+        trip_start: date | None = None,
+        trip_end: date | None = None,
         city_ids: list[UUID] | None = None,
         cover_file_id: UUID | None = None,
-        city_id: UUID | None = None,  # backward compatibility (visit-v1)
     ) -> dict[str, Any]:
         resolved_title = self._normalize_title(title)
         resolved_visibility = self._normalize_visibility(visibility)
         resolved_status = self._normalize_status(status)
-        resolved_date_from = date_from
-        resolved_city_ids = self._resolve_city_ids(city_ids=city_ids, city_id=city_id)
-        resolved_city_id = self._resolve_primary_city_id(resolved_city_ids)
+        resolved_city_ids = self._resolve_city_ids(city_ids=city_ids)
 
-        self._validate_date_range(date_from=resolved_date_from, date_to=date_to)
+        self._validate_date_range(trip_start=trip_start, trip_end=trip_end)
 
         async with self.visits_repository.transaction():
             created = await self.visits_repository.create(
@@ -193,9 +179,8 @@ class VisitsService:
                 title=resolved_title,
                 description=description,
                 visibility=resolved_visibility,
-                date_from=resolved_date_from,
-                date_to=date_to,
-                city_id=resolved_city_id,
+                trip_start=trip_start,
+                trip_end=trip_end,
                 status=resolved_status,
             )
             await self.visits_cities_repository.replace_cities_for_visit(
@@ -237,21 +222,15 @@ class VisitsService:
         existing = await self._get_visit_or_raise(visit_id=visit_id, user_id=user_id)
 
         has_city_ids = 'city_ids' in payload
-        has_city_id = 'city_id' in payload
         has_cover_file_id = 'cover_file_id' in payload
 
         update_payload = dict(payload)
         provided_city_ids = update_payload.pop('city_ids', None)
-        provided_city_id = update_payload.pop('city_id', None)
         cover_file_id = update_payload.pop('cover_file_id', None) if has_cover_file_id else None
 
         next_city_ids: list[UUID] | None = None
-        if has_city_ids or has_city_id:
-            next_city_ids = self._resolve_city_ids(
-                city_ids=provided_city_ids if has_city_ids else None,
-                city_id=provided_city_id if has_city_id else None,
-            )
-            update_payload['city_id'] = self._resolve_primary_city_id(next_city_ids)
+        if has_city_ids:
+            next_city_ids = self._resolve_city_ids(city_ids=provided_city_ids)
 
         if 'title' in update_payload:
             update_payload['title'] = self._normalize_title(update_payload['title'])
@@ -268,11 +247,11 @@ class VisitsService:
                     user_id=user_id,
                 )
 
-        resulting_date_from = (
-            update_payload['date_from'] if 'date_from' in update_payload else existing.get('date_from')
+        resulting_trip_start = (
+            update_payload['trip_start'] if 'trip_start' in update_payload else existing.get('trip_start')
         )
-        resulting_date_to = update_payload.get('date_to', existing.get('date_to'))
-        self._validate_date_range(date_from=resulting_date_from, date_to=resulting_date_to)
+        resulting_trip_end = update_payload.get('trip_end', existing.get('trip_end'))
+        self._validate_date_range(trip_start=resulting_trip_start, trip_end=resulting_trip_end)
 
         async with self.visits_repository.transaction():
             updated = existing
@@ -383,10 +362,13 @@ class VisitsService:
             limit=limit,
             offset=offset,
         )
+        visit_ids = [row['id'] for row in response.items]
+        cities_by_visit = await self.visits_cities_repository.list_cities_for_visits(visit_ids)
         items: list[dict[str, Any]] = []
         for row in response.items:
             item = dict(row)
             item['cover_url'] = self._file_download_url(item.pop('cover_file_id', None), ImageVariant.THUMB)
+            item['cities'] = cities_by_visit.get(item['id'], [])
             items.append(item)
         return PaginatedResponse(items=items, pagination=response.pagination)
 
@@ -403,15 +385,6 @@ class VisitsService:
         checklist = await self.visits_repository.list_visit_detail_checklist(visit_id=visit_id, user_id=user_id)
         places = await self.visits_repository.list_visit_detail_places(visit_id=visit_id, user_id=user_id)
         cities = await self.visits_repository.list_visit_detail_cities(visit_id=visit_id)
-
-        if not cities and visit.get('city_id') and visit.get('city_name'):
-            cities = [
-                {
-                    'id': visit['city_id'],
-                    'name': visit['city_name'],
-                    'country_code': visit['country_code'],
-                }
-            ]
 
         visit['cover_url'] = self._file_download_url(visit.get('cover_file_id'), ImageVariant.THUMB)
         return {

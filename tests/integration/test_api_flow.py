@@ -152,7 +152,7 @@ def test_auth_and_visit_flow(client, settings) -> None:
     create_response = client.post(
         '/api/v1/visits',
         headers=auth_headers,
-        json={'country_code': 'FR', 'date_from': '2024-06-01'},
+        json={'country_code': 'FR', 'trip_start': '2024-06-01'},
     )
     assert create_response.status_code == 201
     visit_id = create_response.json()['id']
@@ -170,10 +170,10 @@ def test_auth_and_visit_flow(client, settings) -> None:
     patch_response = client.patch(
         f'/api/v1/visits/{visit_id}',
         headers=auth_headers,
-        json={'date_from': '2024-07-01', 'status': VisitStatus.PLANNED},
+        json={'trip_start': '2024-07-01', 'status': VisitStatus.PLANNED},
     )
     assert patch_response.status_code == 200
-    assert patch_response.json()['date_from'] == '2024-07-01'
+    assert patch_response.json()['trip_start'] == '2024-07-01'
     assert patch_response.json()['status'] == VisitStatus.PLANNED
 
     delete_response = client.delete(f'/api/v1/visits/{visit_id}', headers=auth_headers)
@@ -209,13 +209,11 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
                         'id': paris_id,
                         'country_code': 'FR',
                         'name': 'Paris',
-                        'name_normalized': 'paris',
                     },
                     {
                         'id': lyon_id,
                         'country_code': 'FR',
                         'name': 'Lyon',
-                        'name_normalized': 'lyon',
                     },
                 ],
             )
@@ -230,8 +228,8 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
             'title': 'France spring trip',
             'description': 'Paris and Lyon',
             'visibility': VisitVisibility.FOLLOWERS,
-            'date_from': '2025-03-10',
-            'date_to': '2025-03-15',
+            'trip_start': '2025-03-10',
+            'trip_end': '2025-03-15',
             'city_ids': [str(paris_id), str(lyon_id)],
         },
     )
@@ -243,10 +241,10 @@ def test_visits_v2_contract_and_cover_file_management(client, settings) -> None:
     assert created_visit['description'] == 'Paris and Lyon'
     assert created_visit['visibility'] == VisitVisibility.FOLLOWERS
     assert created_visit['status'] == VisitStatus.VISITED
-    assert created_visit['date_from'] == '2025-03-10'
-    assert created_visit['date_to'] == '2025-03-15'
+    assert created_visit['trip_start'] == '2025-03-10'
+    assert created_visit['trip_end'] == '2025-03-15'
     assert created_visit['city_ids'] == [str(paris_id), str(lyon_id)]
-    assert created_visit['city_id'] == str(paris_id)
+    assert 'city_id' not in created_visit
     assert created_visit['cover_file_id'] is None
 
     upload_cover_response = client.post(
@@ -351,7 +349,7 @@ def test_visits_status_filters_and_trip_date_payload_is_rejected(client, setting
         auth_headers,
         country_code='FR',
         status=VisitStatus.IN_TRIP,
-        date_from='2025-05-01',
+        trip_start='2025-05-01',
     )
     assert created['status'] == VisitStatus.IN_TRIP
 
@@ -363,6 +361,27 @@ def test_visits_status_filters_and_trip_date_payload_is_rejected(client, setting
     filtered_payload = filtered.json()
     assert filtered_payload['pagination']['total'] == 1
     assert filtered_payload['items'][0]['id'] == created['id']
+
+    rejected_date_from_create = client.post(
+        '/api/v1/visits',
+        headers=auth_headers,
+        json={'country_code': 'FR', 'date_from': '2025-05-02'},
+    )
+    assert rejected_date_from_create.status_code == 400
+
+    rejected_date_to_create = client.post(
+        '/api/v1/visits',
+        headers=auth_headers,
+        json={'country_code': 'FR', 'date_to': '2025-05-02'},
+    )
+    assert rejected_date_to_create.status_code == 400
+
+    rejected_city_id_create = client.post(
+        '/api/v1/visits',
+        headers=auth_headers,
+        json={'country_code': 'FR', 'city_id': str(uuid4())},
+    )
+    assert rejected_city_id_create.status_code == 400
 
     rejected_create = client.post(
         '/api/v1/visits',
@@ -377,6 +396,20 @@ def test_visits_status_filters_and_trip_date_payload_is_rejected(client, setting
         json={'trip_date': '2025-05-03'},
     )
     assert rejected_patch.status_code == 400
+
+    rejected_date_from_patch = client.patch(
+        f'/api/v1/visits/{created["id"]}',
+        headers=auth_headers,
+        json={'date_from': '2025-05-03'},
+    )
+    assert rejected_date_from_patch.status_code == 400
+
+    rejected_city_id_patch = client.patch(
+        f'/api/v1/visits/{created["id"]}',
+        headers=auth_headers,
+        json={'city_id': str(uuid4())},
+    )
+    assert rejected_city_id_patch.status_code == 400
 
 
 def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> None:
@@ -394,7 +427,6 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
                         'id': paris_id,
                         'country_code': 'FR',
                         'name': 'Paris',
-                        'name_normalized': 'paris',
                     }
                 ],
             )
@@ -409,7 +441,7 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
         status=VisitStatus.VISITED,
         city_ids=[str(paris_id)],
     )
-    assert memory_visit['date_from'] is None
+    assert memory_visit['trip_start'] is None
 
     dated_memory = _create_visit(
         client,
@@ -417,7 +449,7 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
         country_code='FR',
         title='France return',
         status=VisitStatus.VISITED,
-        date_from='2025-04-10',
+        trip_start='2025-04-10',
     )
     plan = _create_visit(
         client,
@@ -425,7 +457,7 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
         country_code='IT',
         title='Rome plan',
         status=VisitStatus.PLANNED,
-        date_from='2026-05-01',
+        trip_start='2026-05-01',
     )
 
     photo = _upload_file_for_visit(
@@ -471,14 +503,20 @@ def test_trip_cards_details_statistics_and_nullable_dates(client, settings) -> N
     assert [item['id'] for item in visited_payload['items']] == [dated_memory['id'], memory_visit['id']]
 
     memory_card = next(item for item in visited_payload['items'] if item['id'] == memory_visit['id'])
-    assert memory_card['date_from'] is None
+    assert memory_card['trip_start'] is None
     assert memory_card['cover_url'] == f'/api/v1/files/{photo["id"]}/download?variant=thumb'
     assert memory_card['photos_count'] == 1
     assert memory_card['checklist_total'] == 1
     assert memory_card['checklist_done'] == 1
     assert memory_card['places_total'] == 1
     assert memory_card['places_visited'] == 1
-    assert memory_card['city_name'] == 'Paris'
+    assert memory_card['cities'] == [{'id': str(paris_id), 'name': 'Paris', 'country_code': 'FR'}]
+
+    city_filtered = client.get(f'/api/v1/visits?limit=10&offset=0&city_ids_in={paris_id}', headers=auth_headers)
+    assert city_filtered.status_code == 200
+    city_filtered_payload = city_filtered.json()
+    assert city_filtered_payload['pagination']['total'] == 1
+    assert city_filtered_payload['items'][0]['id'] == memory_visit['id']
 
     planned_cards = client.get('/api/v1/visits/cards?status=planned&limit=10&offset=0', headers=auth_headers)
     assert planned_cards.status_code == 200
@@ -1024,7 +1062,6 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
                 'id': UUID('05f1e4a3-0d4a-5ea0-a368-bf7e70f5b8ec'),
                 'country_code': 'FR',
                 'name': 'Paris',
-                'name_normalized': 'paris',
                 'latitude': Decimal('48.8566'),
                 'longitude': Decimal('2.3522'),
                 'population': 2148327,
@@ -1069,7 +1106,6 @@ def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(
                 'id': UUID('8168e736-cc26-56f4-a573-1a6e7e5e0ea7'),
                 'country_code': 'IT',
                 'name': 'Rome',
-                'name_normalized': 'rome',
                 'latitude': Decimal('41.8931'),
                 'longitude': Decimal('12.4828'),
                 'population': 2873000,

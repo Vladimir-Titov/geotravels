@@ -1,8 +1,9 @@
+from collections.abc import Sequence
 from datetime import date
 from typing import Any
 from uuid import UUID, uuid7
 
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import and_, exists, false, func, select
 
 from app.models.tables import (
     CheckListStatus,
@@ -30,9 +31,8 @@ class VisitsRepository(BaseEntityDBRepository):
         title: str,
         description: str | None,
         visibility: VisitVisibility,
-        date_from: date | None,
-        date_to: date | None,
-        city_id: UUID | None,
+        trip_start: date | None,
+        trip_end: date | None,
         status: VisitStatus,
     ) -> dict[str, Any]:
         return await super().create(
@@ -42,11 +42,39 @@ class VisitsRepository(BaseEntityDBRepository):
             title=title,
             description=description,
             visibility=visibility.value,
-            date_from=date_from,
-            date_to=date_to,
-            city_id=city_id,
+            trip_start=trip_start,
+            trip_end=trip_end,
             status=status.value,
         )
+
+    @staticmethod
+    def _visit_has_any_city(city_ids: Sequence[UUID]) -> Any:
+        if not city_ids:
+            return false()
+        return exists().where(visits_cities.c.visit_id == visits.c.id, visits_cities.c.city_id.in_(city_ids))
+
+    async def search(
+        self,
+        order_by: Sequence[Any] | str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        city_ids_in: Sequence[UUID] | None = None,
+        **filters: Any,
+    ) -> list[dict[str, Any]]:
+        query = self._build_search_query(order_by=order_by, limit=limit, offset=offset, **filters)
+        if city_ids_in is not None:
+            query = query.where(self._visit_has_any_city(city_ids_in))
+        rows = await self.fetch(query)
+        return self._normalize_rows(rows)
+
+    async def count(self, city_ids_in: Sequence[UUID] | None = None, **filters: Any) -> int:
+        base_query = self.base_search_query if self.base_search_query is not None else select(self.entity)
+        filtered = self._apply_filters(base_query, base_query=self.base_search_query, **filters)
+        if city_ids_in is not None:
+            filtered = filtered.where(self._visit_has_any_city(city_ids_in))
+        count_query = select(func.count()).select_from(filtered.subquery())
+        value = await self.fetchval(count_query)
+        return int(value or 0)
 
     async def list_by_user(self, user_id: UUID) -> list[dict[str, Any]]:
         return await self.search(user_id=user_id, order_by=['-created', '-id'])
@@ -134,10 +162,8 @@ class VisitsRepository(BaseEntityDBRepository):
                 visits.c.title,
                 visits.c.country_code,
                 countries.c.name.label('country_name'),
-                visits.c.city_id,
-                cities.c.name.label('city_name'),
-                visits.c.date_from,
-                visits.c.date_to,
+                visits.c.trip_start,
+                visits.c.trip_end,
                 ranked_files.c.file_id.label('cover_file_id'),
                 func.coalesce(photo_counts.c.photos_count, 0).label('photos_count'),
                 func.coalesce(checklist_counts.c.checklist_total, 0).label('checklist_total'),
@@ -147,7 +173,6 @@ class VisitsRepository(BaseEntityDBRepository):
             )
             .select_from(
                 visits.join(countries, countries.c.iso_a2 == visits.c.country_code)
-                .outerjoin(cities, cities.c.id == visits.c.city_id)
                 .outerjoin(
                     ranked_files,
                     and_(ranked_files.c.visit_id == visits.c.id, ranked_files.c.row_num == 1),
@@ -162,9 +187,9 @@ class VisitsRepository(BaseEntityDBRepository):
         )
 
         if status_value == VisitStatus.PLANNED.value:
-            query = query.order_by(visits.c.date_from.asc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
+            query = query.order_by(visits.c.trip_start.asc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
         else:
-            query = query.order_by(visits.c.date_from.desc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
+            query = query.order_by(visits.c.trip_start.desc().nulls_last(), visits.c.created.desc(), visits.c.id.desc())
 
         count_query = (
             select(func.count()).select_from(visits).where(visits.c.user_id == user_id, visits.c.status == status_value)
@@ -183,12 +208,10 @@ class VisitsRepository(BaseEntityDBRepository):
             select(
                 visits,
                 countries.c.name.label('country_name'),
-                cities.c.name.label('city_name'),
                 ranked_files.c.file_id.label('cover_file_id'),
             )
             .select_from(
                 visits.join(countries, countries.c.iso_a2 == visits.c.country_code)
-                .outerjoin(cities, cities.c.id == visits.c.city_id)
                 .outerjoin(
                     ranked_files,
                     and_(ranked_files.c.visit_id == visits.c.id, ranked_files.c.row_num == 1),
@@ -255,26 +278,18 @@ class VisitsRepository(BaseEntityDBRepository):
                 visits.c.status,
                 visits.c.country_code,
                 countries.c.name.label('country_name'),
-                visits.c.city_id,
-                cities.c.name.label('city_name'),
             )
-            .select_from(
-                visits.join(countries, countries.c.iso_a2 == visits.c.country_code).outerjoin(
-                    cities,
-                    cities.c.id == visits.c.city_id,
-                )
-            )
+            .select_from(visits.join(countries, countries.c.iso_a2 == visits.c.country_code))
             .where(
                 visits.c.user_id == user_id,
                 visits.c.status.in_([VisitStatus.VISITED.value, VisitStatus.PLANNED.value]),
             )
         )
         rows = await self.fetch(query)
-        return [self._normalize_uuid_fields(row, ('id', 'city_id')) for row in rows]
+        return [self._normalize_uuid_fields(row, ('id',)) for row in rows]
 
     async def list_user_visit_city_links_for_statistics(self, user_id: UUID) -> list[dict[str, Any]]:
-        has_visit_city = exists().where(visits_cities.c.visit_id == visits.c.id)
-        explicit_city_links = (
+        query = (
             select(
                 visits.c.id.label('visit_id'),
                 cities.c.id.label('city_id'),
@@ -288,21 +303,7 @@ class VisitsRepository(BaseEntityDBRepository):
             )
             .where(visits.c.user_id == user_id, visits.c.status == VisitStatus.VISITED.value)
         )
-        fallback_city_links = (
-            select(
-                visits.c.id.label('visit_id'),
-                cities.c.id.label('city_id'),
-                cities.c.name.label('city_name'),
-            )
-            .select_from(visits.join(cities, cities.c.id == visits.c.city_id))
-            .where(
-                visits.c.user_id == user_id,
-                visits.c.status == VisitStatus.VISITED.value,
-                visits.c.city_id.is_not(None),
-                ~has_visit_city,
-            )
-        )
-        rows = await self.fetch(explicit_city_links.union_all(fallback_city_links))
+        rows = await self.fetch(query)
         return [self._normalize_uuid_fields(row, ('visit_id', 'city_id')) for row in rows]
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
@@ -310,8 +311,6 @@ class VisitsRepository(BaseEntityDBRepository):
             row['id'] = UUID(row['id'])
         if isinstance(row.get('user_id'), str):
             row['user_id'] = UUID(row['user_id'])
-        if isinstance(row.get('city_id'), str):
-            row['city_id'] = UUID(row['city_id'])
         return row
 
     @staticmethod
@@ -323,10 +322,10 @@ class VisitsRepository(BaseEntityDBRepository):
         return normalized
 
     def _normalize_card_row(self, row: dict[str, Any]) -> dict[str, Any]:
-        normalized = self._normalize_uuid_fields(row, ('id', 'city_id', 'cover_file_id'))
+        normalized = self._normalize_uuid_fields(row, ('id', 'cover_file_id'))
         for field_name in ('photos_count', 'checklist_total', 'checklist_done', 'places_total', 'places_visited'):
             normalized[field_name] = int(normalized.get(field_name) or 0)
         return normalized
 
     def _normalize_detail_header_row(self, row: dict[str, Any]) -> dict[str, Any]:
-        return self._normalize_uuid_fields(row, ('id', 'user_id', 'city_id', 'cover_file_id'))
+        return self._normalize_uuid_fields(row, ('id', 'user_id', 'cover_file_id'))
