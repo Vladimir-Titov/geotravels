@@ -25,6 +25,8 @@ MVP backend API for marking visited countries on a political map.
    cp .env.example .env
    ```
    For local UI integration, keep `GEOTRAVELS_CORS_ALLOWED_ORIGINS=http://localhost:5173`.
+   Uploaded image URLs are signed direct imgproxy URLs; the local default is
+   `GEOTRAVELS_IMGPROXY_BASE_URL=http://localhost:8080`.
 4. Run migrations and seed countries:
    ```bash
    uv run python manage.py migrate
