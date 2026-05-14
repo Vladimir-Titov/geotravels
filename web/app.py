@@ -36,7 +36,6 @@ from app.services import (
     CountriesService,
     FilesService,
     FollowersService,
-    ImageTransformer,
     ImageVariantService,
     UsersService,
     VisitsChecklistService,
@@ -148,10 +147,7 @@ def create_app(
         app.state.http_client_session = http_session or aiohttp.ClientSession()
         app.state.db_pool = db_pool or await create_db_pool_from_settings(app_settings)
         app.state.file_storage = file_storage or S3FileStorage(settings=app_settings.storage)
-        app.state.image_variant_service = ImageVariantService(
-            file_storage=app.state.file_storage,
-            transformer=ImageTransformer(),
-        )
+        app.state.image_variant_service = ImageVariantService(settings=app_settings.imgproxy)
         app.state.geonames_client = GeoNamesClient(
             username=app_settings.client_geo.geonames_username,
             base_url=app_settings.client_geo.geonames_base_url,
@@ -209,6 +205,7 @@ def create_app(
             visits_cities_repository=VisitsCitiesRepository(db_pool),
             files_repository=FilesRepository(db_pool),
             file_storage=request.app.state.file_storage,
+            image_variant_service=request.app.state.image_variant_service,
         )
 
     def provide_visits_checklist_service(request: Request) -> VisitsChecklistService:

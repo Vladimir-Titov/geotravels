@@ -5,6 +5,7 @@ from settings.config import (
     get_settings,
 )
 from settings.db import DBSettings, to_async_database_url, to_sync_database_url
+from settings.imgproxy import ImgproxySettings
 from settings.logging import LogSettings
 from settings.otp import OtpSettings
 from settings.storage import StorageSettings
@@ -14,6 +15,7 @@ __all__ = [
     'ClientGeoSettings',
     'AppSettings',
     'DBSettings',
+    'ImgproxySettings',
     'LogSettings',
     'OtpSettings',
     'StorageSettings',

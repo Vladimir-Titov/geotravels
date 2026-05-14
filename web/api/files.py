@@ -1,12 +1,9 @@
 from uuid import UUID
 
-from litestar import Request, Response, Router, delete, get, patch
-from litestar.openapi.datastructures import ResponseSpec
+from litestar import Router, delete, get, patch
 
 from app.services.current_user import CurrentUser
 from app.services.files import FilesService
-from app.services.http_cache import matches_etag
-from app.services.image_variants import ImageVariant
 from web.api.schemas import (
     FilesListRequest,
     FilesListResponse,
@@ -40,50 +37,6 @@ async def delete_file(
 ) -> VisitFileResponse:
     deleted = await files_service.delete_file(file_id=file_id, user_id=current_user.id)
     return VisitFileResponse(**deleted)
-
-
-@get(
-    '/{file_id:uuid}/download',
-    tags=['files'],
-    security=[{'user_auth': []}],
-    responses={
-        200: ResponseSpec(
-            data_container=bytes,
-            media_type='application/octet-stream',
-            description='File content',
-        )
-    },
-)
-async def download_file(
-    file_id: UUID,
-    files_service: FilesService,
-    current_user: CurrentUser,
-    request: Request,
-    variant: ImageVariant = ImageVariant.FULL,
-) -> Response[bytes]:
-    file_data = await files_service.download_file(file_id=file_id, user_id=current_user.id, variant=variant)
-
-    max_age = 86400 if variant in {ImageVariant.THUMB, ImageVariant.PREVIEW} else 3600
-    headers: dict[str, str] = {
-        'Cache-Control': f'private, max-age={max_age}',
-        'ETag': file_data['etag'],
-    }
-    if file_data['filename']:
-        headers['Content-Disposition'] = f'attachment; filename="{file_data["filename"]}"'
-
-    if matches_etag(request.headers.get('If-None-Match'), file_data['etag']):
-        return Response(
-            content=b'',
-            status_code=304,
-            media_type=file_data['file_type'] or 'application/octet-stream',
-            headers=headers,
-        )
-
-    return Response(
-        content=file_data['content'],
-        media_type=file_data['file_type'] or 'application/octet-stream',
-        headers=headers,
-    )
 
 
 @get(
@@ -143,5 +96,5 @@ async def list_public_user_files(
 
 files_router = Router(
     path='/api/v1/files',
-    route_handlers=[update_file, delete_file, download_file, list_my_files, list_public_user_files],
+    route_handlers=[update_file, delete_file, list_my_files, list_public_user_files],
 )

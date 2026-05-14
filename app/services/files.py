@@ -9,7 +9,7 @@ from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository
 from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
-from app.services.image_variants import ImageVariant, ImageVariantData, ImageVariantService
+from app.services.image_variants import ImageVariant, ImageVariantService
 from helpers import InvalidImageError, optimaze_image
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,14 @@ class FilesService:
         self.visits_repository = visits_repository
         self.file_storage = file_storage
         self.image_variant_service = image_variant_service
+
+    def _with_public_file_url(self, file_row: dict) -> dict:
+        item = dict(file_row)
+        item['file_url'] = self.image_variant_service.get_variant_url(
+            file_url=item.get('file_url'),
+            variant=ImageVariant.FULL,
+        )
+        return item
 
     def _normalize_filename(self, filename: str | None) -> str:
         candidate = (filename or 'photo.jpg').strip()
@@ -96,7 +104,7 @@ class FilesService:
         created = await self.files_repository.get_owned_file(file_id=file_row['id'], user_id=user_id)
         if not created:
             raise RuntimeError('File has been created but relation is missing')
-        return created
+        return self._with_public_file_url(created)
 
     async def update_filename(self, file_id: UUID, user_id: UUID, filename: str) -> dict:
         existing = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
@@ -109,7 +117,7 @@ class FilesService:
         updated = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
         if not updated:
             raise RuntimeError('File has been updated but relation is missing')
-        return updated
+        return self._with_public_file_url(updated)
 
     async def delete_file(self, file_id: UUID, user_id: UUID) -> dict:
         existing = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
@@ -130,37 +138,22 @@ class FilesService:
         if should_delete_binary:
             try:
                 await self.file_storage.delete_file(existing['file_url'])
-                await self.image_variant_service.delete_variants(existing['id'])
             except Exception:  # noqa: BLE001
                 logger.exception('Failed to remove file from storage for %s', existing['file_url'])
 
-        return existing
-
-    async def download_file(self, file_id: UUID, user_id: UUID, variant: ImageVariant = ImageVariant.FULL) -> dict:
-        existing = await self.files_repository.get_owned_file(file_id=file_id, user_id=user_id)
-        if not existing:
-            raise NotFoundError('File not found')
-
-        variant_data: ImageVariantData = await self.image_variant_service.get_variant(
-            file_id=file_id,
-            file_url=existing['file_url'],
-            variant=variant,
-        )
-        return {
-            'content': variant_data.content,
-            'filename': existing.get('filename'),
-            'file_type': variant_data.content_type or existing.get('file_type'),
-            'etag': variant_data.etag,
-            'variant': variant_data.variant,
-        }
+        return self._with_public_file_url(existing)
 
     async def list_my_files(self, user_id: UUID, limit: int, offset: int, visit_id: UUID | None) -> PaginatedResponse:
-        return await self.files_repository.list_files_by_user(
+        response = await self.files_repository.list_files_by_user(
             user_id=user_id,
             visit_id=visit_id,
             include_private=True,
             limit=limit,
             offset=offset,
+        )
+        return PaginatedResponse(
+            items=[self._with_public_file_url(item) for item in response.items],
+            pagination=response.pagination,
         )
 
     async def list_public_files_of_user(
@@ -170,10 +163,14 @@ class FilesService:
         offset: int,
         visit_id: UUID | None,
     ) -> PaginatedResponse:
-        return await self.files_repository.list_files_by_user(
+        response = await self.files_repository.list_files_by_user(
             user_id=target_user_id,
             visit_id=visit_id,
             include_private=False,
             limit=limit,
             offset=offset,
+        )
+        return PaginatedResponse(
+            items=[self._with_public_file_url(item) for item in response.items],
+            pagination=response.pagination,
         )

@@ -13,7 +13,7 @@ from app.repositories.visits import VisitsRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
 from app.services.exceptions import InvalidFileError, NotFoundError, ServiceError
 from app.services.file_storage import FileStorage
-from app.services.image_variants import ImageVariant
+from app.services.image_variants import ImageVariant, ImageVariantService
 from helpers import InvalidImageError, optimaze_image
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,13 @@ class VisitsService:
         visits_cities_repository: VisitsCitiesRepository,
         files_repository: FilesRepository,
         file_storage: FileStorage | None = None,
+        image_variant_service: ImageVariantService | None = None,
     ):
         self.visits_repository = visits_repository
         self.visits_cities_repository = visits_cities_repository
         self.files_repository = files_repository
         self.file_storage = file_storage
+        self.image_variant_service = image_variant_service
 
     def _normalize_title(self, title: str | None) -> str:
         if title is None:
@@ -330,15 +332,19 @@ class VisitsService:
         created = await self.files_repository.get_owned_file(file_id=file_row['id'], user_id=user_id)
         if not created:
             raise RuntimeError('File has been created but relation is missing')
-        return created
+        return self._with_public_file_url(created)
 
-    @staticmethod
-    def _file_download_url(file_id: UUID | None, variant: ImageVariant = ImageVariant.FULL) -> str | None:
-        if file_id is None:
+    def _file_variant_url(self, file_url: str | None, variant: ImageVariant = ImageVariant.FULL) -> str | None:
+        if file_url is None:
             return None
-        if variant == ImageVariant.FULL:
-            return f'/api/v1/files/{file_id}/download'
-        return f'/api/v1/files/{file_id}/download?variant={variant.value}'
+        if self.image_variant_service is None:
+            return file_url
+        return self.image_variant_service.get_variant_url(file_url=file_url, variant=variant)
+
+    def _with_public_file_url(self, file_row: dict[str, Any]) -> dict[str, Any]:
+        item = dict(file_row)
+        item['file_url'] = self._file_variant_url(item.get('file_url'), ImageVariant.FULL)
+        return item
 
     async def list_visit_cards(
         self,
@@ -367,7 +373,8 @@ class VisitsService:
         items: list[dict[str, Any]] = []
         for row in response.items:
             item = dict(row)
-            item['cover_url'] = self._file_download_url(item.pop('cover_file_id', None), ImageVariant.THUMB)
+            item.pop('cover_file_id', None)
+            item['cover_url'] = self._file_variant_url(item.pop('cover_file_url', None), ImageVariant.THUMB)
             item['cities'] = cities_by_visit.get(item['id'], [])
             items.append(item)
         return PaginatedResponse(items=items, pagination=response.pagination)
@@ -386,15 +393,15 @@ class VisitsService:
         places = await self.visits_repository.list_visit_detail_places(visit_id=visit_id, user_id=user_id)
         cities = await self.visits_repository.list_visit_detail_cities(visit_id=visit_id)
 
-        visit['cover_url'] = self._file_download_url(visit.get('cover_file_id'), ImageVariant.THUMB)
+        visit['cover_url'] = self._file_variant_url(visit.get('cover_file_url'), ImageVariant.THUMB)
         return {
             'visit': visit,
             'photos': [
                 {
                     **photo,
-                    'file_url': self._file_download_url(photo['id']),
-                    'thumbnail_url': self._file_download_url(photo['id'], ImageVariant.THUMB),
-                    'preview_url': self._file_download_url(photo['id'], ImageVariant.PREVIEW),
+                    'file_url': self._file_variant_url(photo.get('file_url'), ImageVariant.FULL),
+                    'thumbnail_url': self._file_variant_url(photo.get('file_url'), ImageVariant.THUMB),
+                    'preview_url': self._file_variant_url(photo.get('file_url'), ImageVariant.PREVIEW),
                 }
                 for photo in photos
             ],

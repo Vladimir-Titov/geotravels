@@ -94,6 +94,7 @@ class VisitsRepository(BaseEntityDBRepository):
             select(
                 files_visits.c.visit_id,
                 files_visits.c.file_id,
+                files.c.file_url,
                 func.row_number()
                 .over(
                     partition_by=files_visits.c.visit_id,
@@ -101,6 +102,7 @@ class VisitsRepository(BaseEntityDBRepository):
                 )
                 .label('row_num'),
             )
+            .select_from(files_visits.join(files, files.c.id == files_visits.c.file_id))
             .where(files_visits.c.user_id == user_id, files_visits.c.file_id.is_not(None))
             .subquery()
         )
@@ -165,6 +167,7 @@ class VisitsRepository(BaseEntityDBRepository):
                 visits.c.trip_start,
                 visits.c.trip_end,
                 ranked_files.c.file_id.label('cover_file_id'),
+                ranked_files.c.file_url.label('cover_file_url'),
                 func.coalesce(photo_counts.c.photos_count, 0).label('photos_count'),
                 func.coalesce(checklist_counts.c.checklist_total, 0).label('checklist_total'),
                 func.coalesce(checklist_counts.c.checklist_done, 0).label('checklist_done'),
@@ -209,6 +212,7 @@ class VisitsRepository(BaseEntityDBRepository):
                 visits,
                 countries.c.name.label('country_name'),
                 ranked_files.c.file_id.label('cover_file_id'),
+                ranked_files.c.file_url.label('cover_file_url'),
             )
             .select_from(
                 visits.join(countries, countries.c.iso_a2 == visits.c.country_code)
@@ -226,6 +230,7 @@ class VisitsRepository(BaseEntityDBRepository):
         query = (
             select(
                 files.c.id,
+                files.c.file_url,
                 files.c.filename,
                 files.c.file_type,
                 files_visits.c.is_private,
