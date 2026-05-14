@@ -7,7 +7,7 @@ from settings import ImgproxySettings
 def _service() -> ImageVariantService:
     return ImageVariantService(
         ImgproxySettings(
-            base_url='/api/imgproxy',
+            base_url='http://localhost:8080',
             key='736563726574',
             salt='68656c6c6f',
         )
@@ -19,7 +19,7 @@ def test_image_variant_service_builds_signed_full_url() -> None:
         's3://user-bucket/uploads/photo.webp',
         ImageVariant.FULL,
     ) == (
-        '/api/imgproxy/PqOTKu3wIxgOwmBZdP-iS3vr5yllU-smyrkzEaLZQtY'
+        'http://localhost:8080/PqOTKu3wIxgOwmBZdP-iS3vr5yllU-smyrkzEaLZQtY'
         '/rs:fit:1600:1600:0/q:80/plain/s3%3A%2F%2Fuser-bucket%2Fuploads%2Fphoto.webp@webp'
     )
 
@@ -35,7 +35,7 @@ def test_image_variant_service_uses_variant_options(variant: ImageVariant, optio
     url = _service().get_variant_url('s3://user-bucket/uploads/photo.webp', variant)
 
     assert url is not None
-    assert url.startswith('/api/imgproxy/')
+    assert url.startswith('http://localhost:8080/')
     assert options in url
     assert url.endswith('/plain/s3%3A%2F%2Fuser-bucket%2Fuploads%2Fphoto.webp@webp')
 

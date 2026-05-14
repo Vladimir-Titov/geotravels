@@ -5,7 +5,6 @@ from web.api.countries import countries_router
 from web.api.files import files_router
 from web.api.followers import followers_router
 from web.api.healthcheck import healthcheck_router
-from web.api.imgproxy import imgproxy_router
 from web.api.users import users_router
 from web.api.visits import visits_router
 from web.api.visits_checklist import visits_checklist_router
@@ -25,5 +24,4 @@ __all__ = [
     'visits_places_router',
     'visits_places_files_router',
     'healthcheck_router',
-    'imgproxy_router',
 ]

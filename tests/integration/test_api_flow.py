@@ -87,7 +87,7 @@ def _assert_imgproxy_url(url: str | None, variant: str) -> None:
     }
 
     assert url is not None
-    assert url.startswith('/api/imgproxy/')
+    assert url.startswith('http://localhost:8080/')
     assert options_by_variant[variant] in url
     assert '/plain/' in url
     assert url.endswith('@webp')

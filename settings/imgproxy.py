@@ -7,10 +7,9 @@ from settings.base import COMMON_MODEL_CONFIG
 class ImgproxySettings(BaseSettings):
     model_config = COMMON_MODEL_CONFIG | {'populate_by_name': True}
 
-    base_url: str = Field(default='/api/imgproxy', validation_alias='GEOTRAVELS_IMGPROXY_BASE_URL')
-    internal_base_url: str = Field(
+    base_url: str = Field(
         default='http://localhost:8080',
-        validation_alias='GEOTRAVELS_IMGPROXY_INTERNAL_BASE_URL',
+        validation_alias='GEOTRAVELS_IMGPROXY_BASE_URL',
     )
     key: str = Field(
         default='736563726574',
