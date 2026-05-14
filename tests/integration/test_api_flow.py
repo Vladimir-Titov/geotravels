@@ -90,7 +90,6 @@ def _assert_imgproxy_url(url: str | None, variant: str) -> None:
     assert url.startswith('/api/imgproxy/')
     assert options_by_variant[variant] in url
     assert '/plain/' in url
-    assert '://' in url
     assert url.endswith('@webp')
 
 

@@ -46,7 +46,7 @@ class ImageVariantService:
 
     @staticmethod
     def _source_url(file_url: str) -> str:
-        return quote(file_url, safe=':/')
+        return quote(file_url, safe='')
 
     def get_variant_url(self, file_url: str | None, variant: ImageVariant = ImageVariant.FULL) -> str | None:
         if file_url is None:

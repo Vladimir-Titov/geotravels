@@ -6,6 +6,7 @@ from web.api import (
     files_router,
     followers_router,
     healthcheck_router,
+    imgproxy_router,
     users_router,
     visits_checklist_router,
     visits_places_files_router,
@@ -26,4 +27,5 @@ route_handlers = [
     visits_places_router,
     visits_places_files_router,
     healthcheck_router,
+    imgproxy_router,
 ]

@@ -19,8 +19,8 @@ def test_image_variant_service_builds_signed_full_url() -> None:
         's3://user-bucket/uploads/photo.webp',
         ImageVariant.FULL,
     ) == (
-        '/api/imgproxy/q4PixzVrYcJaJGcW6fxaxOoY0dugUiG1tgYY2oau4-A'
-        '/rs:fit:1600:1600:0/q:80/plain/s3://user-bucket/uploads/photo.webp@webp'
+        '/api/imgproxy/PqOTKu3wIxgOwmBZdP-iS3vr5yllU-smyrkzEaLZQtY'
+        '/rs:fit:1600:1600:0/q:80/plain/s3%3A%2F%2Fuser-bucket%2Fuploads%2Fphoto.webp@webp'
     )
 
 
@@ -37,14 +37,14 @@ def test_image_variant_service_uses_variant_options(variant: ImageVariant, optio
     assert url is not None
     assert url.startswith('/api/imgproxy/')
     assert options in url
-    assert url.endswith('/plain/s3://user-bucket/uploads/photo.webp@webp')
+    assert url.endswith('/plain/s3%3A%2F%2Fuser-bucket%2Fuploads%2Fphoto.webp@webp')
 
 
 def test_image_variant_service_escapes_plain_source_url() -> None:
     url = _service().get_variant_url('s3://user-bucket/uploads/photo 100%.webp?x=@', ImageVariant.THUMB)
 
     assert url is not None
-    assert url.endswith('/plain/s3://user-bucket/uploads/photo%20100%25.webp%3Fx%3D%40@webp')
+    assert url.endswith('/plain/s3%3A%2F%2Fuser-bucket%2Fuploads%2Fphoto%20100%25.webp%3Fx%3D%40@webp')
 
 
 def test_image_variant_service_rejects_non_hex_secrets() -> None:
