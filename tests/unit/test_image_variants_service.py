@@ -27,8 +27,8 @@ def test_image_variant_service_builds_signed_full_url() -> None:
 @pytest.mark.parametrize(
     ('variant', 'options'),
     [
-        (ImageVariant.PREVIEW, '/rs:fit:960:960:0/q:78/'),
-        (ImageVariant.THUMB, '/rs:fit:480:480:0/q:72/'),
+        (ImageVariant.PREVIEW, '/rs:fit:1280:1280:0/q:84/'),
+        (ImageVariant.THUMB, '/rs:fit:720:720:0/q:82/'),
     ],
 )
 def test_image_variant_service_uses_variant_options(variant: ImageVariant, options: str) -> None:
