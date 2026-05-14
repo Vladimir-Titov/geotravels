@@ -22,8 +22,8 @@ class ImageVariantSpec:
 
 IMAGE_VARIANT_SPECS: dict[ImageVariant, ImageVariantSpec] = {
     ImageVariant.FULL: ImageVariantSpec(max_side=1600, quality=80),
-    ImageVariant.PREVIEW: ImageVariantSpec(max_side=960, quality=78),
-    ImageVariant.THUMB: ImageVariantSpec(max_side=480, quality=72),
+    ImageVariant.PREVIEW: ImageVariantSpec(max_side=1280, quality=84),
+    ImageVariant.THUMB: ImageVariantSpec(max_side=720, quality=82),
 }
 
 

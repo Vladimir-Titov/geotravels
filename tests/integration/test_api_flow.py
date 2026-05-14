@@ -82,8 +82,8 @@ def _upload_file_for_visit(
 def _assert_imgproxy_url(url: str | None, variant: str) -> None:
     options_by_variant = {
         'full': '/rs:fit:1600:1600:0/q:80/',
-        'preview': '/rs:fit:960:960:0/q:78/',
-        'thumb': '/rs:fit:480:480:0/q:72/',
+        'preview': '/rs:fit:1280:1280:0/q:84/',
+        'thumb': '/rs:fit:720:720:0/q:82/',
     }
 
     assert url is not None
