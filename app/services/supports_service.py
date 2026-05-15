@@ -1,4 +1,7 @@
+from asyncpg import ForeignKeyViolationError
+
 from app.repositories import SupportTicketsRepository
+from app.services.exceptions import UnprocessableEntityError
 
 
 class SupportsService:
@@ -6,4 +9,7 @@ class SupportsService:
         self.support_tickets_repository = support_tickets_repository
 
     async def create_support_ticket(self, **data):
-        return await self.support_tickets_repository.create(**data)
+        try:
+            return await self.support_tickets_repository.create(**data)
+        except ForeignKeyViolationError as e:
+            raise UnprocessableEntityError('User not found')
