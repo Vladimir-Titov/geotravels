@@ -20,6 +20,7 @@ from app.repositories import (
     FilesRepository,
     FollowersRepository,
     OtpRequestsRepository,
+    SupportTicketsRepository,
     UsersAchievementsRepository,
     UsersRepository,
     VisitsChecklistRepository,
@@ -48,6 +49,7 @@ from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
 from app.services.geonames import GeoNamesClient
 from app.services.otp_sender import ResendOTPSender
+from app.services.supports_service import SupportsService
 from helpers import DBPool, create_db_pool_from_settings
 from settings import AppSettings, LogSettings, get_settings
 from web.routes import route_handlers
@@ -248,6 +250,12 @@ def create_app(
             image_variant_service=request.app.state.image_variant_service,
         )
 
+    def provide_support_service(request: Request) -> SupportsService:
+        support_tickets_repository = SupportTicketsRepository(request.app.state.db_pool)
+        return SupportsService(
+            support_tickets_repository=support_tickets_repository,
+        )
+
     def provide_current_user(request: Request, auth_service: AuthService) -> CurrentUser:
         authorization = request.headers.get('Authorization', '')
         if not authorization:
@@ -287,7 +295,7 @@ def create_app(
             components=Components(
                 security_schemes={
                     'user_auth': SecurityScheme(type='http', scheme='bearer', bearer_format='JWT'),
-                }
+                },
             ),
         ),
         cors_config=CORSConfig(
@@ -308,6 +316,7 @@ def create_app(
             'visits_places_service': Provide(provide_visits_places_service, sync_to_thread=False),
             'visits_places_files_service': Provide(provide_visits_places_files_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
+            'support_service': Provide(provide_support_service, sync_to_thread=False),
         },
         exception_handlers={
             ServiceError: _service_error_handler,

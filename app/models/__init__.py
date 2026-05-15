@@ -15,6 +15,7 @@ from app.models.tables import (
     visits_cities,
     visits_places,
     visits_places_files,
+    support_tickets,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     'users_achievements',
     'telegram_users',
     'otp_requests',
+    'support_tickets',
 ]

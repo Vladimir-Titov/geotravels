@@ -1,0 +1,32 @@
+"""added support tickets table
+
+Revision ID: c76643fb40c6
+Revises: 20a54745cd11
+Create Date: 2026-05-15 15:59:28.724481
+
+"""
+import sqlalchemy as sa
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision = 'c76643fb40c6'
+down_revision = '20a54745cd11'
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    op.create_table('support_tickets',
+                    sa.Column('id', sa.Uuid(), nullable=False),
+                    sa.Column('contact', sa.Text(), nullable=False),
+                    sa.Column('content', sa.Text(), nullable=False),
+                    sa.Column('status', sa.String(length=16), server_default='open', nullable=False),
+                    sa.Column('created', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+                    sa.Column('updated', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+                    sa.PrimaryKeyConstraint('id'),
+                    schema='tripmark',
+                    )
+
+
+def downgrade() -> None:
+    op.drop_table('support_tickets', schema='tripmark')

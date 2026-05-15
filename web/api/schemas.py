@@ -7,7 +7,7 @@ from uuid import UUID
 from litestar.datastructures import UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.tables import CheckListStatus, FileVisibility, VisitStatus, VisitVisibility
+from app.models.tables import CheckListStatus, FileVisibility, SupportTicketStatus, VisitStatus, VisitVisibility
 
 
 class OtpRequestSchema(BaseModel):
@@ -842,7 +842,7 @@ ALLOWED_UPLOAD_IMAGE_TYPES = frozenset(
         'image/heif-sequence',
         'image/x-heic',
         'image/x-heif',
-    }
+    },
 )
 
 
@@ -917,3 +917,17 @@ class TelegramAppAuthRequest(BaseModel):
 
 class HealthcheckResponse(BaseModel):
     status: bool
+
+
+class SupportTicketRequest(BaseModel):
+    contact: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=1500)
+
+
+class SupportTicketResponse(BaseModel):
+    id: UUID
+    contact: str
+    content: str
+    status: SupportTicketStatus
+    created: datetime
+    updated: datetime
