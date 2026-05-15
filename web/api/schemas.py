@@ -7,7 +7,7 @@ from uuid import UUID
 from litestar.datastructures import UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.tables import CheckListStatus, FileVisibility, VisitStatus, VisitVisibility, SupportTicketStatus
+from app.models.tables import CheckListStatus, FileVisibility, SupportTicketStatus, VisitStatus, VisitVisibility
 
 
 class OtpRequestSchema(BaseModel):
@@ -920,13 +920,13 @@ class HealthcheckResponse(BaseModel):
 
 
 class SupportTicketRequest(BaseModel):
+    contact: str = Field(min_length=1)
     content: str = Field(min_length=1, max_length=1500)
-    user_id: UUID | None = None
 
 
 class SupportTicketResponse(BaseModel):
     id: UUID
-    user_id: str | None = None
+    contact: str
     content: str
     status: SupportTicketStatus
     created: datetime

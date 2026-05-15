@@ -20,13 +20,14 @@ from app.repositories import (
     FilesRepository,
     FollowersRepository,
     OtpRequestsRepository,
+    SupportTicketsRepository,
     UsersAchievementsRepository,
     UsersRepository,
     VisitsChecklistRepository,
     VisitsCitiesRepository,
     VisitsPlacesFilesRepository,
     VisitsPlacesRepository,
-    VisitsRepository, SupportTicketsRepository,
+    VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.services import (
@@ -315,7 +316,7 @@ def create_app(
             'visits_places_service': Provide(provide_visits_places_service, sync_to_thread=False),
             'visits_places_files_service': Provide(provide_visits_places_files_service, sync_to_thread=False),
             'current_user': Provide(provide_current_user, sync_to_thread=False),
-            'support_service': Provide(provide_support_service, sync_to_thread=True),
+            'support_service': Provide(provide_support_service, sync_to_thread=False),
         },
         exception_handlers={
             ServiceError: _service_error_handler,

@@ -284,7 +284,7 @@ support_tickets = Table(
     'support_tickets',
     metadata,
     Column('id', Uuid(as_uuid=True), primary_key=True),
-    Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE')),
+    Column('contact', Text, nullable=False),
     Column('content', Text, nullable=False),
     Column('status', String(length=16), nullable=False, server_default=SupportTicketStatus.OPEN),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),

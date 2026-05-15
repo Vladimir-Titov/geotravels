@@ -937,6 +937,23 @@ def test_countries_and_users_list_require_auth_and_support_filters(client, setti
     assert users_payload['items'][0]['email'] == 'lists@example.com'
 
 
+def test_support_ticket_accepts_contact_without_user(client) -> None:
+    response = client.post(
+        '/api/v1/support/ticket',
+        json={
+            'contact': 'telegram:@tripmark_user',
+            'content': 'Need help with a route.',
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload['contact'] == 'telegram:@tripmark_user'
+    assert payload['content'] == 'Need help with a route.'
+    assert payload['status'] == 'open'
+    assert 'user_id' not in payload
+
+
 def test_countries_in_filter_works_with_repeated_query_params(client, settings) -> None:
     tokens = _get_tokens(client, 'countries-in@example.com', settings.otp.otp_mock_code)
     auth_headers = {'Authorization': f'Bearer {tokens["access_token"]}'}
