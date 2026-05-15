@@ -60,7 +60,7 @@ users = Table(
     Column('last_name', String(length=64), nullable=True),
     Column('username', String(length=32), nullable=True),
     Column(
-        'telegram_user_id', BigInteger(), ForeignKey('telegram_users.telegram_id', ondelete='SET NULL'), nullable=True
+        'telegram_user_id', BigInteger(), ForeignKey('telegram_users.telegram_id', ondelete='SET NULL'), nullable=True,
     ),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
@@ -270,6 +270,23 @@ telegram_users = Table(
     Column('last_name', String(length=64), nullable=True),
     Column('language_code', String(length=10), nullable=True),
     Column('photo_url', String(length=128), nullable=True),
+    Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
+)
+
+
+class SupportTicketStatus(StrEnum):
+    OPEN = 'open'
+    CLOSED = 'closed'
+
+
+support_tickets = Table(
+    'support_tickets',
+    metadata,
+    Column('id', Uuid(as_uuid=True), primary_key=True),
+    Column('user_id', Uuid(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE')),
+    Column('content', Text, nullable=False),
+    Column('status', String(length=16), nullable=False, server_default=SupportTicketStatus.OPEN),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
 )

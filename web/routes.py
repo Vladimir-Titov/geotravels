@@ -11,6 +11,7 @@ from web.api import (
     visits_places_files_router,
     visits_places_router,
     visits_router,
+    supports_router,
 )
 
 route_handlers = [
@@ -26,4 +27,5 @@ route_handlers = [
     visits_places_router,
     visits_places_files_router,
     healthcheck_router,
+    supports_router,
 ]
