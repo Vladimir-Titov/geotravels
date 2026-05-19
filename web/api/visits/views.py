@@ -5,11 +5,11 @@ from litestar import Router, delete, get, patch, post
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
 
-from app.models.tables import VisitStatus
+from app.models import VisitStatus
 from app.services.current_user import CurrentUser
 from app.services.exceptions import ServiceError
 from app.services.visits import VisitsService
-from web.api.schemas import (
+from web.api.visits.schemas import (
     MarkVisitRequest,
     PaginationResponse,
     UpdateVisitRequest,

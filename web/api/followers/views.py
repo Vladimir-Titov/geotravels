@@ -4,7 +4,7 @@ from litestar import Router, delete, get, post
 
 from app.services.current_user import CurrentUser
 from app.services.followers import FollowersService
-from web.api.schemas import (
+from web.api.followers.schemas import (
     FollowerResponse,
     FollowersListRequest,
     FollowersListResponse,

@@ -2,7 +2,7 @@ from litestar import Router, get
 
 from app.services.countries import CountriesService
 from app.services.current_user import CurrentUser
-from web.api.schemas import CountriesListRequest, CountriesListResponse, CountryResponse, PaginationResponse
+from web.api.countries.schemas import CountriesListRequest, CountriesListResponse, CountryResponse, PaginationResponse
 from web.utils import from_query
 
 

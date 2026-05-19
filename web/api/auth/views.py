@@ -1,7 +1,7 @@
 from litestar import Router, post
 
 from app.services.auth import AuthService
-from web.api.schemas import (
+from web.api.auth.schemas import (
     AccessTokenResponse,
     OtpRequestResponse,
     OtpRequestSchema,

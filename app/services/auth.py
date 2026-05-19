@@ -11,7 +11,7 @@ from uuid import UUID
 
 import arrow
 
-from app.models.tables import OtpRequestStatus
+from app.models import OtpRequestStatus
 from app.repositories import RowNotFoundError
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository

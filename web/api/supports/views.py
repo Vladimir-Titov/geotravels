@@ -1,7 +1,7 @@
 from litestar import Router, post
 
 from app.services.supports_service import SupportsService
-from web.api.schemas import SupportTicketRequest, SupportTicketResponse
+from web.api.supports.schemas import SupportTicketRequest, SupportTicketResponse
 
 
 @post('ticket', tags=['support'])

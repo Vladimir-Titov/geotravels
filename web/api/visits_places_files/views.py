@@ -4,7 +4,7 @@ from litestar import Router, delete, get, post
 
 from app.services.current_user import CurrentUser
 from app.services.visits_places_files import VisitsPlacesFilesService
-from web.api.schemas import (
+from web.api.visits_places_files.schemas import (
     CreateVisitPlaceFileRequest,
     PaginationResponse,
     VisitPlaceFileResponse,

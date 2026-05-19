@@ -2,7 +2,7 @@ from litestar import Router, get
 
 from app.services.achievements import AchievementsService
 from app.services.current_user import CurrentUser
-from web.api.schemas import (
+from web.api.achievements.schemas import (
     AchievementResponse,
     AchievementsListRequest,
     AchievementsListResponse,

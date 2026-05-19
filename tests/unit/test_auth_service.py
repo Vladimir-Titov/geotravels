@@ -4,7 +4,7 @@ from uuid import uuid4
 import arrow
 import pytest
 
-from app.models.tables import OtpRequestStatus, users
+from app.models import OtpRequestStatus, users
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository

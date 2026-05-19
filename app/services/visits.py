@@ -6,7 +6,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID, uuid7
 
-from app.models.tables import FileVisibility, VisitStatus, VisitVisibility
+from app.models import FileVisibility, VisitStatus, VisitVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository

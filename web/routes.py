@@ -6,12 +6,12 @@ from web.api import (
     files_router,
     followers_router,
     healthcheck_router,
+    supports_router,
     users_router,
     visits_checklist_router,
     visits_places_files_router,
     visits_places_router,
     visits_router,
-    supports_router,
 )
 
 route_handlers = [

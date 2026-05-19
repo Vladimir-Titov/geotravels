@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.models.tables import VisitStatus
+from app.models import VisitStatus
 from app.repositories.cities import CitiesRepository
 from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository

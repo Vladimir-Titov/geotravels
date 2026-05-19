@@ -5,7 +5,7 @@ from litestar import Router, delete, get, patch, post
 from app.services.current_user import CurrentUser
 from app.services.exceptions import ServiceError
 from app.services.visits_checklist import VisitsChecklistService
-from web.api.schemas import (
+from web.api.visits_checklist.schemas import (
     CreateVisitChecklistRequest,
     PaginationResponse,
     UpdateVisitChecklistRequest,

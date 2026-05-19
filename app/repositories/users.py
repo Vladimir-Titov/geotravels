@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID, uuid7
 
-from app.models.tables import users
+from app.models import users
 from app.repositories.base import BaseEntityDBRepository
 
 

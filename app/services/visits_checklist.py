@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from app.models.tables import CheckListStatus
+from app.models import CheckListStatus
 from app.repositories.base import PaginatedResponse
 from app.repositories.visits import VisitsRepository
 from app.repositories.visits_checklist import VisitsChecklistRepository

@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.models.tables import telegram_users
+from app.models import telegram_users
 from app.repositories.base import BaseEntityDBRepository
 
 

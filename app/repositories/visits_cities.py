@@ -4,7 +4,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import select
 
-from app.models.tables import cities, visits_cities
+from app.models import cities, visits_cities
 from app.repositories.base import BaseDBRepository
 
 

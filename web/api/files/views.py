@@ -4,7 +4,7 @@ from litestar import Router, delete, get, patch
 
 from app.services.current_user import CurrentUser
 from app.services.files import FilesService
-from web.api.schemas import (
+from web.api.files.schemas import (
     FilesListRequest,
     FilesListResponse,
     PaginationResponse,

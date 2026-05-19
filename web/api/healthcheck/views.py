@@ -4,7 +4,7 @@ import logging
 from litestar import Request, Response, Router, get
 from sqlalchemy import select
 
-from web.api.schemas import HealthcheckResponse
+from web.api.healthcheck.schemas import HealthcheckResponse
 
 logger = logging.getLogger(__name__)
 

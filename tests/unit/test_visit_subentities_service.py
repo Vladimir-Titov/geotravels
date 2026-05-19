@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.models.tables import CheckListStatus, FileVisibility
+from app.models import CheckListStatus, FileVisibility
 from app.repositories.files import FilesRepository
 from app.repositories.users import UsersRepository
 from app.repositories.visits import VisitsRepository
