@@ -15,7 +15,7 @@ from web.api.auth.schemas import (
 
 @post('/otp/request', tags=['auth'])
 async def otp_request(data: OtpRequestSchema, auth_service: AuthService) -> OtpRequestResponse:
-    payload = await auth_service.request_otp(contact=data.contact)
+    payload = await auth_service.request_otp(contact=str(data.contact))
     return OtpRequestResponse(**payload)
 
 

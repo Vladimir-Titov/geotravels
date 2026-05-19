@@ -53,10 +53,6 @@ class ImageVariantService:
             return None
 
         spec = IMAGE_VARIANT_SPECS[variant]
-        path = (
-            f'/rs:fit:{spec.max_side}:{spec.max_side}:0'
-            f'/q:{spec.quality}'
-            f'/plain/{self._source_url(file_url)}@webp'
-        )
+        path = f'/rs:fit:{spec.max_side}:{spec.max_side}:0/q:{spec.quality}/plain/{self._source_url(file_url)}@webp'
         signature = self._sign_path(path)
         return f'{self.settings.base_url.rstrip("/")}/{signature}{path}'

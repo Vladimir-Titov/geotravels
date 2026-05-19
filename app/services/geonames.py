@@ -179,7 +179,7 @@ class GeoNamesClient:
             return None
         try:
             return Decimal(str(value))
-        except (InvalidOperation, ValueError):
+        except InvalidOperation, ValueError:
             return None
 
     def _parse_int(self, value: Any) -> int | None:

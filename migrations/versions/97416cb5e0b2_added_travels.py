@@ -58,7 +58,11 @@ def upgrade() -> None:
         sa.Column('updated', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         schema='tripmark',
     )
-    op.add_column('files_visits', sa.Column('visibility', sa.String(length=16), nullable=False), schema='tripmark')
+    op.add_column(
+        'files_visits',
+        sa.Column('visibility', sa.String(length=16), server_default='private', nullable=False),
+        schema='tripmark',
+    )
     op.create_index(
         'idx_files_visits_cover_unique',
         'files_visits',

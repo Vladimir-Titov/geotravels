@@ -7,7 +7,7 @@ from app.models import SupportTicketStatus
 
 
 class SupportTicketRequest(BaseModel):
-    contact: str = Field(min_length=1)
+    contact: str = Field(min_length=1, max_length=255)
     content: str = Field(min_length=1, max_length=1500)
 
 

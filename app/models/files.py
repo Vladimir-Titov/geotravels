@@ -33,7 +33,7 @@ files_visits = Table(
     Column('is_cover', Boolean(), nullable=False, server_default='false'),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
-    Column('visibility', String(length=16), nullable=False),
+    Column('visibility', String(length=16), nullable=False, server_default=FileVisibility.PRIVATE.value),
     Index('idx_files_visits_file_id', 'file_id'),
     Index('idx_files_visits_visit_id', 'visit_id'),
     Index('idx_files_visits_user_id', 'user_id'),

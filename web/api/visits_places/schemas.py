@@ -1,18 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-@dataclass(eq=False)
-class BaseListRequest:
-    limit: int = field(default=100)
-    offset: int = field(default=0)
-
-    def to_repo_filters(self) -> dict[str, Any]:
-        return {name: value for name, value in vars(self).items() if value is not None}
+from web.api.base import BaseListRequest, PaginationResponse
 
 
 @dataclass(eq=False)
@@ -52,12 +44,6 @@ class VisitsPlacesListRequest(BaseListRequest):
     updated_ge: datetime | None = field(default=None)
     updated_in: list[datetime] | None = field(default=None)
     updated_notin: list[datetime] | None = field(default=None)
-
-
-class PaginationResponse(BaseModel):
-    limit: int | None
-    offset: int
-    total: int
 
 
 class CreateVisitPlaceRequest(BaseModel):

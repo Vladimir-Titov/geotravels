@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column('visit_id', sa.Uuid(), nullable=False),
         sa.Column('title', sa.String(length=255), nullable=False),
         sa.Column('user_id', sa.Uuid(), nullable=False),
-        sa.Column('is_visited', sa.Boolean(), server_default='false', nullable=False),
+        sa.Column('is_visited', sa.Boolean(), server_default=sa.text('false'), nullable=False),
         sa.Column('created', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['tripmark.users.id'], ondelete='CASCADE'),

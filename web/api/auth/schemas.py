@@ -1,20 +1,20 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class OtpRequestSchema(BaseModel):
-    contact: str
+    contact: EmailStr
 
 
 class OtpRequestResponse(BaseModel):
-    otp_id: str
+    otp_id: UUID
     message: str
 
 
 class OtpVerifyRequest(BaseModel):
     otp_id: UUID
-    code: str
+    code: str = Field(min_length=6, max_length=6, pattern=r'^\d{6}$')
 
 
 class RefreshRequest(BaseModel):

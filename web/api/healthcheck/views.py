@@ -1,25 +1,33 @@
 import asyncio
 import logging
+from typing import Protocol
 
 from litestar import Request, Response, Router, get
-from sqlalchemy import select
+from sqlalchemy import literal, select
 
+from app.services.file_storage import FileStorage
+from helpers import DBPool
 from web.api.healthcheck.schemas import HealthcheckResponse
 
 logger = logging.getLogger(__name__)
 
 
-async def _check_db(state: object) -> bool:
+class _HealthcheckState(Protocol):
+    db_pool: DBPool
+    file_storage: FileStorage
+
+
+async def _check_db(state: _HealthcheckState) -> bool:
     try:
         async with state.db_pool.connection() as connection:
-            await connection.fetch_one(select(1))
+            await connection.fetch_one(select(literal(1)))
         return True
     except Exception:
         logger.exception('Healthcheck db check failed')
         return False
 
 
-async def _check_s3(state: object) -> bool:
+async def _check_s3(state: _HealthcheckState) -> bool:
     try:
         return await state.file_storage.check_connection()
     except Exception:
