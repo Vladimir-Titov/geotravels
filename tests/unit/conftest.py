@@ -3,7 +3,7 @@ import json
 import pytest_asyncio
 from sqlalchemy import create_engine, text
 
-from app.models.tables import countries, metadata
+from app.models import countries, metadata
 from helpers import create_db_pool_from_settings
 from settings import to_sync_database_url
 

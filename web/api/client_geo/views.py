@@ -2,7 +2,7 @@ from litestar import Router, get
 
 from app.services.client_geo_search import ClientGeoSearchService
 from app.services.current_user import CurrentUser
-from web.api.schemas import (
+from web.api.client_geo.schemas import (
     ClientGeoCitiesListRequest,
     ClientGeoCitiesListResponse,
     ClientGeoCityResponse,

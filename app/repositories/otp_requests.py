@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID, uuid4
 
-from app.models.tables import OtpRequestStatus, otp_requests
+from app.models import OtpRequestStatus, otp_requests
 from app.repositories.base import BaseEntityDBRepository, RowNotFoundError
 
 

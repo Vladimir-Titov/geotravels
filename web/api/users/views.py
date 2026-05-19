@@ -2,7 +2,7 @@ from litestar import Router, get
 
 from app.services.current_user import CurrentUser
 from app.services.users import UsersService
-from web.api.schemas import PaginationResponse, UserResponse, UsersListRequest, UsersListResponse
+from web.api.users.schemas import PaginationResponse, UserResponse, UsersListRequest, UsersListResponse
 from web.utils import from_query
 
 

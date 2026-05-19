@@ -1,0 +1,3 @@
+from web.api.users.views import users_router
+
+__all__ = ['users_router']

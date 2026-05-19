@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.sql import ColumnElement
 
-from app.models.tables import cities
+from app.models import cities
 from app.repositories.base import BaseEntityDBRepository, PaginatedResponse, Pagination
 
 

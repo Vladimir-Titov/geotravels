@@ -10,7 +10,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine
 
-from app.models.tables import metadata
+from app.models import metadata
 from app.repositories.countries import CountriesRepository
 from helpers import create_db_pool_from_settings
 from settings import AppSettings, to_sync_database_url

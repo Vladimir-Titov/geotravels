@@ -3,7 +3,7 @@ import logging
 import re
 from uuid import UUID, uuid7
 
-from app.models.tables import FileVisibility
+from app.models import FileVisibility
 from app.repositories.base import PaginatedResponse
 from app.repositories.files import FilesRepository
 from app.repositories.visits import VisitsRepository

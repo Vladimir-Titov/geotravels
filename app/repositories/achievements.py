@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID, uuid7
 
-from app.models.tables import achievements
+from app.models import achievements
 from app.repositories.base import BaseEntityDBRepository
 
 

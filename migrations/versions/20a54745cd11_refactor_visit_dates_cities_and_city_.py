@@ -5,6 +5,7 @@ Revises: 1b8d6f42a0c7
 Create Date: 2026-05-08 09:35:53.553278
 
 """
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -111,7 +112,7 @@ def downgrade() -> None:
         sa.Column('name_normalized', sa.VARCHAR(length=200), autoincrement=False, nullable=True),
         schema='tripmark',
     )
-    op.execute("UPDATE tripmark.cities SET name_normalized = LOWER(name)")
+    op.execute('UPDATE tripmark.cities SET name_normalized = LOWER(name)')
     op.alter_column(
         'cities',
         'name_normalized',

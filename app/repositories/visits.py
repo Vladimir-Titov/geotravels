@@ -5,7 +5,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import and_, exists, false, func, select
 
-from app.models.tables import (
+from app.models import (
     CheckListStatus,
     VisitStatus,
     VisitVisibility,
@@ -215,8 +215,7 @@ class VisitsRepository(BaseEntityDBRepository):
                 ranked_files.c.file_url.label('cover_file_url'),
             )
             .select_from(
-                visits.join(countries, countries.c.iso_a2 == visits.c.country_code)
-                .outerjoin(
+                visits.join(countries, countries.c.iso_a2 == visits.c.country_code).outerjoin(
                     ranked_files,
                     and_(ranked_files.c.visit_id == visits.c.id, ranked_files.c.row_num == 1),
                 )

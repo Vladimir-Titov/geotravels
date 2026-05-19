@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 os.environ['GEOTRAVELS_ENVIRONMENT'] = 'test'
 os.environ['GEOTRAVELS_SENTRY_ENABLE'] = 'false'
 
-from app.models.tables import countries, metadata
+from app.models import countries, metadata
 from settings import AppSettings, AuthSettings, ClientGeoSettings, LogSettings, OtpSettings, to_sync_database_url
 from web.app import create_app
 

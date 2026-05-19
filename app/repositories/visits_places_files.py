@@ -3,7 +3,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import select
 
-from app.models.tables import visits_places, visits_places_files
+from app.models import visits_places, visits_places_files
 from app.repositories.base import BaseEntityDBRepository
 
 

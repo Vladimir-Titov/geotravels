@@ -32,5 +32,6 @@ class CountdownError(ServiceError):
 class InvalidFileError(ServiceError):
     status_code = 400
 
+
 class UnprocessableEntityError(ServiceError):
     status_code = 422

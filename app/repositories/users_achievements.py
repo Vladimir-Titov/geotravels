@@ -4,7 +4,7 @@ from uuid import UUID, uuid7
 
 from sqlalchemy import select
 
-from app.models.tables import achievements, users_achievements
+from app.models import achievements, users_achievements
 from app.repositories.base import BaseEntityDBRepository
 
 

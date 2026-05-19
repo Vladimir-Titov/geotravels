@@ -2,7 +2,7 @@ import pytest
 from litestar.datastructures import UploadFile
 from pydantic import ValidationError
 
-from web.api.schemas import UploadFileRequest
+from web.api.visits.schemas import UploadFileRequest
 
 
 def _upload_file(content_type: str) -> UploadFile:

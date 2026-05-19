@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine
 
-from app.models.tables import (
+from app.models import (
     CheckListStatus,
     FileVisibility,
     VisitStatus,

@@ -5,12 +5,12 @@ from web.api.countries import countries_router
 from web.api.files import files_router
 from web.api.followers import followers_router
 from web.api.healthcheck import healthcheck_router
+from web.api.supports import supports_router
 from web.api.users import users_router
 from web.api.visits import visits_router
 from web.api.visits_checklist import visits_checklist_router
 from web.api.visits_places import visits_places_router
 from web.api.visits_places_files import visits_places_files_router
-from web.api.supports import supports_router
 
 __all__ = [
     'auth_router',
