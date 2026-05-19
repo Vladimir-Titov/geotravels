@@ -281,3 +281,24 @@ async def test_login_via_yandex_reuses_existing_user(db_pool, settings) -> None:
 
     assert second_user_id == first_user_id
     assert users_count == 1
+
+
+@pytest.mark.asyncio
+async def test_login_via_yandex_links_existing_email_user(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+    otp_result = await service.request_otp('ivan@example.com')
+    otp_tokens = await service.verify_otp(
+        otp_id=otp_result['otp_id'],
+        code=settings.otp.otp_mock_code,
+    )
+
+    yandex_tokens = await service.login_via_yandex(code='yandex-code')
+
+    otp_user_id = service.get_user_id_from_access_token(otp_tokens['access_token'])
+    yandex_user_id = service.get_user_id_from_access_token(yandex_tokens['access_token'])
+    user = await UsersRepository(db_pool).get_by_id(otp_user_id)
+    users_count = await UsersRepository(db_pool).count(email='ivan@example.com')
+
+    assert yandex_user_id == otp_user_id
+    assert user['yandex_user_id'] == '1000034426'
+    assert users_count == 1

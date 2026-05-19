@@ -276,22 +276,40 @@ class AuthService:
             code_verifier=code_verifier,
         )
         yandex_id = str(profile['id'])
+        yandex_profile = self._normalize_yandex_profile(profile)
+        email = self._first_string(profile.get('default_email'), profile.get('email'))
         user = await self.users_repository.get_user_by_yandex_user_id(yandex_id)
 
         if not user:
             async with self.users_repository.transaction():
-                await self.yandex_users_repository.upsert_profile(**self._normalize_yandex_profile(profile))
-                user = await self.users_repository.create(
-                    yandex_user_id=yandex_id,
-                    email=self._first_string(profile.get('default_email'), profile.get('email')),
-                    username=self._first_string(profile.get('login'), profile.get('display_name')),
-                    first_name=self._first_string(profile.get('first_name')),
-                    last_name=self._first_string(profile.get('last_name')),
-                )
+                await self.yandex_users_repository.upsert_profile(**yandex_profile)
+                user = await self._get_or_create_yandex_user(yandex_id=yandex_id, email=email, profile=profile)
         else:
-            await self.yandex_users_repository.upsert_profile(**self._normalize_yandex_profile(profile))
+            await self.yandex_users_repository.upsert_profile(**yandex_profile)
 
         return self._issue_tokens(user['id'])
+
+    async def _get_or_create_yandex_user(
+        self,
+        *,
+        yandex_id: str,
+        email: str | None,
+        profile: dict[str, Any],
+    ) -> dict[str, Any]:
+        user = await self.users_repository.get_by_email(email) if email else None
+        if user:
+            linked_yandex_id = user.get('yandex_user_id')
+            if linked_yandex_id and linked_yandex_id != yandex_id:
+                raise AuthenticationError('Email is already linked to another Yandex account')
+            return await self.users_repository.update_by_id(user['id'], yandex_user_id=yandex_id)
+
+        return await self.users_repository.create(
+            yandex_user_id=yandex_id,
+            email=email,
+            username=self._first_string(profile.get('login'), profile.get('display_name')),
+            first_name=self._first_string(profile.get('first_name')),
+            last_name=self._first_string(profile.get('last_name')),
+        )
 
     def _normalize_yandex_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
         return {
