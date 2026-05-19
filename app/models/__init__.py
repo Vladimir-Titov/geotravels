@@ -14,6 +14,7 @@ from app.models.visits_checklist import CheckListStatus, visits_checklist
 from app.models.visits_cities import visits_cities
 from app.models.visits_places import visits_places
 from app.models.visits_places_files import visits_places_files
+from app.models.yandex_users import yandex_users
 
 __all__ = [
     'metadata',
@@ -39,4 +40,5 @@ __all__ = [
     'visits_cities',
     'visits_places',
     'visits_places_files',
+    'yandex_users',
 ]

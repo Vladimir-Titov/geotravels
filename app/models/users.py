@@ -13,6 +13,9 @@ users = Table(
     Column(
         'telegram_user_id', BigInteger(), ForeignKey('telegram_users.telegram_id', ondelete='SET NULL'), nullable=True
     ),
+    Column(
+        'yandex_user_id', String(length=64), ForeignKey('yandex_users.yandex_id', ondelete='SET NULL'), nullable=True
+    ),
     Column('created', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
     Index('idx_unique_email', 'email', unique=True, postgresql_where=Column('email').is_not(None)),

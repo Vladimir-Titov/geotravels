@@ -44,3 +44,9 @@ class TelegramAuthRequest(BaseModel):
 
 class TelegramAppAuthRequest(BaseModel):
     init_data: str
+
+
+class YandexAuthRequest(BaseModel):
+    code: str = Field(min_length=1)
+    redirect_uri: str | None = None
+    code_verifier: str | None = None

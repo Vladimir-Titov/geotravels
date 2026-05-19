@@ -49,7 +49,12 @@ def settings() -> AppSettings:
     return AppSettings(
         environment='test',
         countries_geojson_path=Path('data/countries.geojson'),
-        auth=AuthSettings(jwt_secret='test-secret-123456789012345678901234', telegram_bot_token='test-token'),
+        auth=AuthSettings(
+            jwt_secret='test-secret-123456789012345678901234',
+            telegram_bot_token='test-token',
+            yandex_client_id='test-yandex-client',
+            yandex_client_secret='test-yandex-secret',
+        ),
         otp=OtpSettings(otp_mock_code=TEST_OTP_MOCK_CODE),
         client_geo=ClientGeoSettings(
             geonames_username='demo',

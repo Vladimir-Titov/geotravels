@@ -19,6 +19,7 @@ from app.repositories.visits_checklist import VisitsChecklistRepository
 from app.repositories.visits_cities import VisitsCitiesRepository
 from app.repositories.visits_places import VisitsPlacesRepository
 from app.repositories.visits_places_files import VisitsPlacesFilesRepository
+from app.repositories.yandex_users import YandexUsersRepository
 
 __all__ = [
     'BaseDBRepository',
@@ -40,4 +41,5 @@ __all__ = [
     'VisitsPlacesRepository',
     'VisitsPlacesFilesRepository',
     'SupportTicketsRepository',
+    'YandexUsersRepository',
 ]

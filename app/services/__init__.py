@@ -11,6 +11,7 @@ from app.services.visits import VisitsService
 from app.services.visits_checklist import VisitsChecklistService
 from app.services.visits_places import VisitsPlacesService
 from app.services.visits_places_files import VisitsPlacesFilesService
+from app.services.yandex_auth import YandexAuthClient
 
 __all__ = [
     'AuthService',
@@ -27,4 +28,5 @@ __all__ = [
     'VisitsChecklistService',
     'VisitsPlacesService',
     'VisitsPlacesFilesService',
+    'YandexAuthClient',
 ]

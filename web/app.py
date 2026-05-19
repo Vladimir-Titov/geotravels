@@ -30,6 +30,7 @@ from app.repositories import (
     VisitsRepository,
 )
 from app.repositories.telegram_users import TelegramUsersRepository
+from app.repositories.yandex_users import YandexUsersRepository
 from app.services import (
     AchievementsService,
     AuthService,
@@ -43,6 +44,7 @@ from app.services import (
     VisitsPlacesFilesService,
     VisitsPlacesService,
     VisitsService,
+    YandexAuthClient,
 )
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
@@ -168,10 +170,19 @@ def create_app(
         return AuthService(
             users_repository=UsersRepository(db_pool),
             telegram_users_repository=TelegramUsersRepository(db_pool),
+            yandex_users_repository=YandexUsersRepository(db_pool),
             otp_requests_repository=OtpRequestsRepository(db_pool),
             otp_sender=ResendOTPSender(
                 api_key=app_settings.otp.resend_api_key,
                 email_from=app_settings.otp.resend_email_from,
+            ),
+            yandex_auth_client=YandexAuthClient(
+                client_id=app_settings.auth.yandex_client_id,
+                client_secret=app_settings.auth.yandex_client_secret,
+                token_url=app_settings.auth.yandex_oauth_token_url,
+                user_info_url=app_settings.auth.yandex_user_info_url,
+                timeout_seconds=app_settings.auth.yandex_auth_timeout_seconds,
+                session=request.app.state.http_client_session,
             ),
             settings=app_settings,
         )
