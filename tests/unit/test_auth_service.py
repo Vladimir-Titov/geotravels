@@ -8,6 +8,7 @@ from app.models import OtpRequestStatus, users
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
+from app.repositories.yandex_users import YandexUsersRepository
 from app.services.auth import AuthService
 from app.services.exceptions import AppError, AuthenticationError, CountdownError
 from app.services.otp_sender import MockOtpSender
@@ -18,12 +19,35 @@ class FailingOtpSender:
         raise RuntimeError('send failed')
 
 
-def make_service(db_pool, settings, otp_sender=None) -> AuthService:
+class FakeYandexAuthClient:
+    def __init__(self, profile: dict | None = None) -> None:
+        self.profile = profile or {
+            'id': '1000034426',
+            'login': 'ivan',
+            'default_email': 'ivan@example.com',
+            'first_name': 'Ivan',
+            'last_name': 'Ivanov',
+            'display_name': 'ivan',
+            'real_name': 'Ivan Ivanov',
+            'default_avatar_id': 'avatar-1',
+            'client_id': 'test-client-id',
+            'psuid': 'psuid-1',
+        }
+        self.calls: list[dict] = []
+
+    async def get_user_info(self, *, code: str, redirect_uri: str | None = None, code_verifier: str | None = None):
+        self.calls.append({'code': code, 'redirect_uri': redirect_uri, 'code_verifier': code_verifier})
+        return self.profile
+
+
+def make_service(db_pool, settings, otp_sender=None, yandex_auth_client=None) -> AuthService:
     return AuthService(
         users_repository=UsersRepository(db_pool),
         telegram_users_repository=TelegramUsersRepository(db_pool),
+        yandex_users_repository=YandexUsersRepository(db_pool),
         otp_requests_repository=OtpRequestsRepository(db_pool),
         otp_sender=otp_sender or MockOtpSender(),
+        yandex_auth_client=yandex_auth_client or FakeYandexAuthClient(),
         settings=settings,
     )
 
@@ -213,3 +237,47 @@ async def test_refresh_deleted_user_raises_authentication_error(db_pool, setting
 
     with pytest.raises(AuthenticationError):
         await service.refresh(tokens['refresh_token'])
+
+
+@pytest.mark.asyncio
+async def test_login_via_yandex_creates_user_and_returns_tokens(db_pool, settings) -> None:
+    yandex_client = FakeYandexAuthClient()
+    service = make_service(db_pool, settings, yandex_auth_client=yandex_client)
+
+    tokens = await service.login_via_yandex(
+        code='auth-code',
+        redirect_uri='https://example.com/callback',
+        code_verifier='verifier',
+    )
+
+    user_id = service.get_user_id_from_access_token(tokens['access_token'])
+    user = await UsersRepository(db_pool).get_by_id(user_id)
+    yandex_user = await YandexUsersRepository(db_pool).get_by_yandex_id('1000034426')
+
+    assert tokens['refresh_token']
+    assert user['yandex_user_id'] == '1000034426'
+    assert user['email'] == 'ivan@example.com'
+    assert yandex_user
+    assert yandex_user['login'] == 'ivan'
+    assert yandex_client.calls == [
+        {
+            'code': 'auth-code',
+            'redirect_uri': 'https://example.com/callback',
+            'code_verifier': 'verifier',
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_login_via_yandex_reuses_existing_user(db_pool, settings) -> None:
+    service = make_service(db_pool, settings)
+
+    first_tokens = await service.login_via_yandex(code='first-code')
+    second_tokens = await service.login_via_yandex(code='second-code')
+
+    first_user_id = service.get_user_id_from_access_token(first_tokens['access_token'])
+    second_user_id = service.get_user_id_from_access_token(second_tokens['access_token'])
+    users_count = await UsersRepository(db_pool).count(yandex_user_id='1000034426')
+
+    assert second_user_id == first_user_id
+    assert users_count == 1

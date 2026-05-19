@@ -14,3 +14,9 @@ class AuthSettings(BaseSettings):
 
     telegram_bot_token: str
     telegram_auth_date_ttl_hours: int = 24
+
+    yandex_client_id: str | None = None
+    yandex_client_secret: str | None = None
+    yandex_oauth_token_url: str = 'https://oauth.yandex.ru/token'
+    yandex_user_info_url: str = 'https://login.yandex.ru/info'
+    yandex_auth_timeout_seconds: float = 5.0

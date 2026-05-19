@@ -10,6 +10,7 @@ from web.api.auth.schemas import (
     TelegramAppAuthRequest,
     TelegramAuthRequest,
     TokenPairResponse,
+    YandexAuthRequest,
 )
 
 
@@ -43,6 +44,17 @@ async def telegram_app_login(data: TelegramAppAuthRequest, auth_service: AuthSer
     return TokenPairResponse(**payload)
 
 
+@post('/yandex', tags=['auth'])
+async def yandex_login(data: YandexAuthRequest, auth_service: AuthService) -> TokenPairResponse:
+    payload = await auth_service.login_via_yandex(
+        code=data.code,
+        redirect_uri=data.redirect_uri,
+        code_verifier=data.code_verifier,
+    )
+    return TokenPairResponse(**payload)
+
+
 auth_router = Router(
-    path='/api/v1/auth', route_handlers=[otp_request, otp_verify, refresh, telegram_login, telegram_app_login]
+    path='/api/v1/auth',
+    route_handlers=[otp_request, otp_verify, refresh, telegram_login, telegram_app_login, yandex_login],
 )

@@ -17,6 +17,9 @@ class UsersRepository(BaseEntityDBRepository):
     async def get_user_by_telegram_user_id(self, telegram_user_id: int) -> dict[str, Any] | None:
         return await self.search_first_row(telegram_user_id=telegram_user_id)
 
+    async def get_user_by_yandex_user_id(self, yandex_user_id: str) -> dict[str, Any] | None:
+        return await self.search_first_row(yandex_user_id=yandex_user_id)
+
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(row.get('id'), str):
             row['id'] = UUID(row['id'])

@@ -16,8 +16,10 @@ from app.repositories import RowNotFoundError
 from app.repositories.otp_requests import OtpRequestsRepository
 from app.repositories.telegram_users import TelegramUsersRepository
 from app.repositories.users import UsersRepository
+from app.repositories.yandex_users import YandexUsersRepository
 from app.services.exceptions import AppError, AuthenticationError, CountdownError
 from app.services.otp_sender import OtpSenderProtocol
+from app.services.yandex_auth import YandexAuthClient
 from helpers.security import decode_token, encode_token
 from settings import AppSettings
 
@@ -29,14 +31,18 @@ class AuthService:
         self,
         users_repository: UsersRepository,
         telegram_users_repository: TelegramUsersRepository,
+        yandex_users_repository: YandexUsersRepository,
         otp_requests_repository: OtpRequestsRepository,
         otp_sender: OtpSenderProtocol,
+        yandex_auth_client: YandexAuthClient,
         settings: AppSettings,
     ):
         self.users_repository = users_repository
         self.telegram_users_repository = telegram_users_repository
+        self.yandex_users_repository = yandex_users_repository
         self.otp_requests_repository = otp_requests_repository
         self.otp_sender = otp_sender
+        self.yandex_auth_client = yandex_auth_client
         self.settings = settings
 
     async def request_otp(self, contact: str) -> dict[str, str]:
@@ -256,3 +262,53 @@ class AuthService:
                 )
 
         return self._issue_tokens(user['id'])
+
+    async def login_via_yandex(
+        self,
+        *,
+        code: str,
+        redirect_uri: str | None = None,
+        code_verifier: str | None = None,
+    ) -> dict[str, str]:
+        profile = await self.yandex_auth_client.get_user_info(
+            code=code,
+            redirect_uri=redirect_uri,
+            code_verifier=code_verifier,
+        )
+        yandex_id = str(profile['id'])
+        user = await self.users_repository.get_user_by_yandex_user_id(yandex_id)
+
+        if not user:
+            async with self.users_repository.transaction():
+                await self.yandex_users_repository.upsert_profile(**self._normalize_yandex_profile(profile))
+                user = await self.users_repository.create(
+                    yandex_user_id=yandex_id,
+                    email=self._first_string(profile.get('default_email'), profile.get('email')),
+                    username=self._first_string(profile.get('login'), profile.get('display_name')),
+                    first_name=self._first_string(profile.get('first_name')),
+                    last_name=self._first_string(profile.get('last_name')),
+                )
+        else:
+            await self.yandex_users_repository.upsert_profile(**self._normalize_yandex_profile(profile))
+
+        return self._issue_tokens(user['id'])
+
+    def _normalize_yandex_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
+        return {
+            'yandex_id': str(profile['id']),
+            'login': self._first_string(profile.get('login')),
+            'default_email': self._first_string(profile.get('default_email'), profile.get('email')),
+            'first_name': self._first_string(profile.get('first_name')),
+            'last_name': self._first_string(profile.get('last_name')),
+            'display_name': self._first_string(profile.get('display_name')),
+            'real_name': self._first_string(profile.get('real_name')),
+            'default_avatar_id': self._first_string(profile.get('default_avatar_id')),
+            'client_id': self._first_string(profile.get('client_id')),
+            'psuid': self._first_string(profile.get('psuid')),
+        }
+
+    def _first_string(self, *values: Any) -> str | None:
+        for value in values:
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
