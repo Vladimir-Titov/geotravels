@@ -6,6 +6,7 @@ from app.services.files import FilesService
 from app.services.followers import FollowersService
 from app.services.image_variants import ImageVariant, ImageVariantService
 from app.services.otp_sender import ResendOTPSender
+from app.services.places import PlacesService
 from app.services.users import UsersService
 from app.services.visits import VisitsService
 from app.services.visits_checklist import VisitsChecklistService
@@ -22,6 +23,7 @@ __all__ = [
     'FollowersService',
     'ImageVariant',
     'ImageVariantService',
+    'PlacesService',
     'ResendOTPSender',
     'UsersService',
     'VisitsService',

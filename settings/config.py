@@ -9,6 +9,7 @@ from settings.auth import AuthSettings
 from settings.base import BASE_DIR, COMMON_MODEL_CONFIG
 from settings.client_geo import ClientGeoSettings
 from settings.db import DBSettings
+from settings.geoapify import GeoApifySettings
 from settings.imgproxy import ImgproxySettings
 from settings.logging import LogSettings
 from settings.otp import OtpSettings
@@ -25,6 +26,7 @@ class AppSettings(BaseSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     otp: OtpSettings = Field(default_factory=OtpSettings)
     client_geo: ClientGeoSettings = Field(default_factory=ClientGeoSettings)
+    geoapify: GeoApifySettings = Field(default_factory=GeoApifySettings)
     db: DBSettings = Field(default_factory=DBSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     imgproxy: ImgproxySettings = Field(default_factory=ImgproxySettings)

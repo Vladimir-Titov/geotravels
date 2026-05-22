@@ -5,6 +5,7 @@ from settings.config import (
     get_settings,
 )
 from settings.db import DBSettings, to_async_database_url, to_sync_database_url
+from settings.geoapify import GeoApifySettings
 from settings.imgproxy import ImgproxySettings
 from settings.logging import LogSettings
 from settings.otp import OtpSettings
@@ -22,4 +23,5 @@ __all__ = [
     'get_settings',
     'to_async_database_url',
     'to_sync_database_url',
+    'GeoApifySettings',
 ]

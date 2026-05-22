@@ -1,7 +1,10 @@
+from uuid import UUID
+
 from litestar import Router, get
 
 from app.services.client_geo_search import ClientGeoSearchService
 from app.services.current_user import CurrentUser
+from app.services.places import PlacesService
 from web.api.client_geo.schemas import (
     ClientGeoCitiesListRequest,
     ClientGeoCitiesListResponse,
@@ -58,4 +61,20 @@ async def list_client_cities(
     )
 
 
-client_geo_router = Router(path='/api/v1/geo', route_handlers=[list_client_countries, list_client_cities])
+@get('/cities/{city_id:uuid}/places', tags=['client-geo'], security=[{'user_auth': []}])
+async def suggest_client_city_places(
+    city_id: UUID,
+    places_service: PlacesService,
+    current_user: CurrentUser,  # noqa: ARG001
+) -> list[str]:
+    return await places_service.suggest_places(city_id=city_id)
+
+
+client_geo_router = Router(
+    path='/api/v1/geo',
+    route_handlers=[
+        list_client_countries,
+        list_client_cities,
+        suggest_client_city_places,
+    ],
+)
