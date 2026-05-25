@@ -12,6 +12,7 @@ from web.api.client_geo.schemas import (
     ClientGeoCountriesListRequest,
     ClientGeoCountriesListResponse,
     ClientGeoCountryResponse,
+    ClientGeoPlacesSuggestRequest,
     PaginationResponse,
 )
 from web.utils import from_query
@@ -61,13 +62,19 @@ async def list_client_cities(
     )
 
 
-@get('/cities/{city_id:uuid}/places', tags=['client-geo'], security=[{'user_auth': []}])
+@get(
+    '/cities/{city_id:uuid}/places',
+    tags=['client-geo'],
+    security=[{'user_auth': []}],
+    dependencies={'filters': from_query(ClientGeoPlacesSuggestRequest)},
+)
 async def suggest_client_city_places(
     city_id: UUID,
     places_service: PlacesService,
     current_user: CurrentUser,  # noqa: ARG001
+    filters: ClientGeoPlacesSuggestRequest,
 ) -> list[str]:
-    return await places_service.suggest_places(city_id=city_id)
+    return await places_service.suggest_places(city_id=city_id, lang=filters.lang)
 
 
 client_geo_router = Router(

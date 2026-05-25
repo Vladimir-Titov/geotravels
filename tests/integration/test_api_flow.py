@@ -15,6 +15,7 @@ from app.models import (
     users_achievements,
 )
 from app.services.geonames import GeoNamesClient
+from app.services.places import PlacesService
 from app.services.visits import VisitsService
 from settings import to_sync_database_url
 
@@ -1102,6 +1103,25 @@ def test_client_geo_cities_fallback_to_geonames_and_persists_meta(client, settin
     assert second_payload['pagination']['total'] == 1
     assert second_payload['items'][0]['name'] == 'Paris'
     assert calls['count'] == 1
+
+
+def test_client_geo_city_places_passes_lang_to_places_service(client, settings, monkeypatch) -> None:
+    async def _mock_suggest_places(self, *, city_id, lang='en'):  # noqa: ARG001
+        assert city_id == UUID('8168e736-cc26-56f4-a573-1a6e7e5e0ea7')
+        assert lang == 'ru'
+        return ['Колизей']
+
+    monkeypatch.setattr(PlacesService, 'suggest_places', _mock_suggest_places)
+    tokens = _get_tokens(client, 'client-geo-place-labels@example.com', settings.otp.otp_mock_code)
+    headers = _auth_headers(tokens)
+
+    response = client.get(
+        '/api/v1/geo/cities/8168e736-cc26-56f4-a573-1a6e7e5e0ea7/places?lang=ru',
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == ['Колизей']
 
 
 def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(

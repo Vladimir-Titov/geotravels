@@ -112,6 +112,11 @@ class ClientGeoCitiesListRequest(CitiesListRequest):
         return _normalize_client_geo_lang(self.lang)
 
 
+@dataclass(frozen=True)
+class ClientGeoPlacesSuggestRequest:
+    lang: str | None = field(default=None)
+
+
 class ClientGeoCountryResponse(CountryResponse):
     display_name: str
 
