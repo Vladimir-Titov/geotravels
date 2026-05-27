@@ -52,6 +52,7 @@ from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
 from app.services.geoapify.client import GeoApifyClient
 from app.services.geonames import GeoNamesClient
+from app.services.llm.deepseek import DeepSeekClient
 from app.services.otp_sender import ResendOTPSender
 from app.services.supports_service import SupportsService
 from helpers import DBPool, create_db_pool_from_settings
@@ -164,6 +165,10 @@ def create_app(
             settings=app_settings.geoapify,
             session=app.state.http_client_session,
         )
+        app.state.deepseek_client = DeepSeekClient(
+            settings=app_settings.deepseek,
+            session=app.state.http_client_session,
+        )
 
     async def shutdown(app: Litestar) -> None:
         if http_session is None and hasattr(app.state, 'http_client_session'):
@@ -210,6 +215,7 @@ def create_app(
         return PlacesService(
             geoapify_client=request.app.state.geoapify_client,
             cities_repository=CitiesRepository(db_pool),
+            deepseek_client=app.state.deepseek_client,
         )
 
     def provide_achievements_service(request: Request) -> AchievementsService:

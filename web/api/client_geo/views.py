@@ -73,7 +73,7 @@ async def suggest_client_city_places(
     places_service: PlacesService,
     current_user: CurrentUser,  # noqa: ARG001
     filters: ClientGeoPlacesSuggestRequest,
-) -> list[str]:
+) -> list[dict[str, str]]:
     return await places_service.suggest_places(city_id=city_id, lang=filters.lang)
 
 

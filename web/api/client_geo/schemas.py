@@ -114,7 +114,7 @@ class ClientGeoCitiesListRequest(CitiesListRequest):
 
 @dataclass(frozen=True)
 class ClientGeoPlacesSuggestRequest:
-    lang: str | None = field(default=None)
+    lang: str = field(default='en')
 
 
 class ClientGeoCountryResponse(CountryResponse):

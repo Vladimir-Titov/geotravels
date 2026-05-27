@@ -5,6 +5,7 @@ from settings.config import (
     get_settings,
 )
 from settings.db import DBSettings, to_async_database_url, to_sync_database_url
+from settings.deepseek import DeepSeekSettings
 from settings.geoapify import GeoApifySettings
 from settings.imgproxy import ImgproxySettings
 from settings.logging import LogSettings
@@ -15,6 +16,7 @@ __all__ = [
     'AuthSettings',
     'ClientGeoSettings',
     'AppSettings',
+    'DeepSeekSettings',
     'DBSettings',
     'ImgproxySettings',
     'LogSettings',

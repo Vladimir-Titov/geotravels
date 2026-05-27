@@ -1,6 +1,8 @@
 from math import asin, cos, radians, sin, sqrt
+from typing import Literal
 from uuid import UUID
 
+import ujson
 from app.repositories import CitiesRepository
 from app.repositories.base import RowNotFoundError
 from app.services.exceptions import NotFoundError, ServiceError
@@ -11,6 +13,8 @@ from app.services.geoapify.schemas import (
     GeoApifyPlaceProximityBias,
     GeoApifyPlaceRequest,
 )
+from app.services.llm.deepseek import DeepSeekClient, DeepSeekCompletionRequest
+from app.services.llm.prompts import get_suggest_place_prompt
 
 POPULAR_PLACE_CATEGORIES = (
     GeoApifyPlaceCategory.TOURISM_ATTRACTION,
@@ -54,11 +58,13 @@ class PlacesService:
         self,
         geoapify_client: GeoApifyClient,
         cities_repository: CitiesRepository,
+        deepseek_client: DeepSeekClient,
     ):
         self.geoapify_client = geoapify_client
         self.cities_repository = cities_repository
+        self.deepseek_client = deepseek_client
 
-    async def suggest_places(self, city_id: UUID, lang: str | None = DEFAULT_GEOAPIFY_LANG) -> list[str]:
+    async def suggest_places(self, city_id: UUID, lang: str = DEFAULT_GEOAPIFY_LANG) -> list[dict[str, str]]:
         try:
             city = await self.cities_repository.get_by_id(city_id)
         except RowNotFoundError as exc:
@@ -76,7 +82,14 @@ class PlacesService:
         )
         response = await self.geoapify_client.search_places(search_request)
 
-        return self._extract_place_names(response, lat=lat, lng=lng, lang=normalized_lang)
+        names = self._extract_place_names(response, lat=lat, lng=lng, lang=normalized_lang)
+        completions_request = DeepSeekCompletionRequest(
+            model='deepseek-v4-flash',
+            prompt=get_suggest_place_prompt(lang=lang, names=names),
+        )
+        completions = await self.deepseek_client.completions(completions_request)
+        resp = completions.choices[0].text
+        return ujson.loads(resp)
 
     def _normalize_lang(self, value: str | None) -> str:
         if not isinstance(value, str):
@@ -109,7 +122,7 @@ class PlacesService:
             east = float(bbox['east'])
             south = float(bbox['south'])
             west = float(bbox['west'])
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             return None
 
         return max(
