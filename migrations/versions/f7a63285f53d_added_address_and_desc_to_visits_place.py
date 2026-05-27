@@ -5,9 +5,9 @@ Revises: e91c0a4d7f62
 Create Date: 2026-05-27 18:00:14.395550
 
 """
-from alembic import op
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'f7a63285f53d'
@@ -24,4 +24,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column('visits_places', 'description', schema='tripmark')
     op.drop_column('visits_places', 'address', schema='tripmark')
-
