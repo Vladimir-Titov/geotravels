@@ -195,6 +195,7 @@ class GeoApifyPlaceProperties:
     formatted: str | None = None
     address_line1: str | None = None
     address_line2: str | None = None
+    address_line3: str | None = None
     categories: tuple[str, ...] = ()
     details: tuple[str, ...] = ()
     datasource: JsonObject | None = None
@@ -228,6 +229,7 @@ class GeoApifyPlaceProperties:
             'formatted',
             'address_line1',
             'address_line2',
+            'address_line3',
             'categories',
             'details',
             'datasource',
@@ -260,6 +262,7 @@ class GeoApifyPlaceProperties:
             formatted=data.get('formatted'),
             address_line1=data.get('address_line1'),
             address_line2=data.get('address_line2'),
+            address_line3=data.get('address_line3'),
             categories=_normalize_values(data.get('categories')),
             details=_normalize_values(data.get('details')),
             datasource=_optional_object(data.get('datasource')),
@@ -293,6 +296,7 @@ class GeoApifyPlaceProperties:
             'formatted': self.formatted,
             'address_line1': self.address_line1,
             'address_line2': self.address_line2,
+            'address_line3': self.address_line3,
             'categories': list(self.categories),
             'details': list(self.details),
             'datasource': self.datasource,
@@ -360,9 +364,7 @@ class GeoApifyPlaceResponse:
         return cls(
             type=str(data.get('type', 'FeatureCollection')),
             features=tuple(
-                GeoApifyPlaceFeature.from_dict(feature)
-                for feature in features
-                if isinstance(feature, dict)
+                GeoApifyPlaceFeature.from_dict(feature) for feature in features if isinstance(feature, dict)
             ),
             bbox=tuple(float(value) for value in bbox) if isinstance(bbox, Iterable) else None,
             extra=extra,

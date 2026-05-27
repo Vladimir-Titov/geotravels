@@ -1,8 +1,9 @@
 from math import asin, cos, radians, sin, sqrt
-from typing import Literal
+from pprint import pprint
 from uuid import UUID
 
 import ujson
+
 from app.repositories import CitiesRepository
 from app.repositories.base import RowNotFoundError
 from app.services.exceptions import NotFoundError, ServiceError
@@ -85,7 +86,7 @@ class PlacesService:
         names = self._extract_place_names(response, lat=lat, lng=lng, lang=normalized_lang)
         completions_request = DeepSeekCompletionRequest(
             model='deepseek-v4-flash',
-            prompt=get_suggest_place_prompt(lang=lang, names=names),
+            prompt=get_suggest_place_prompt(lang=normalized_lang, names=names),
         )
         completions = await self.deepseek_client.completions(completions_request)
         resp = completions.choices[0].text
@@ -157,8 +158,8 @@ class PlacesService:
         value = sin(delta_lat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(delta_lon / 2) ** 2
         return 2 * EARTH_RADIUS_METERS * asin(sqrt(value))
 
-    def _extract_place_names(self, response, *, lat: float, lng: float, lang: str) -> list[str]:
-        scored_by_name: dict[str, tuple[float, float, int, str]] = {}
+    def _extract_place_names(self, response, *, lat: float, lng: float, lang: str) -> list[dict[str, str]]:
+        scored_by_name: dict[str, tuple[float, float, int, str, str]] = {}
 
         for index, feature in enumerate(response):
             name = self._get_feature_name(feature, lang=lang)
@@ -175,10 +176,11 @@ class PlacesService:
             sortable = (score, -distance_meters, -index)
             existing = scored_by_name.get(normalized_key)
             if existing is None or sortable > existing[:3]:
-                scored_by_name[normalized_key] = (*sortable, normalized_name)
+                scored_by_name[normalized_key] = (*sortable, normalized_name, self._get_feature_address(feature))
 
         scored_places = sorted(scored_by_name.values(), reverse=True)
-        return [name for *_score_parts, name in scored_places[:DEFAULT_POPULAR_PLACES_LIMIT]]
+        pprint(scored_places)
+        return [{name: address} for *_score_parts, name, address in scored_places[:DEFAULT_POPULAR_PLACES_LIMIT]]
 
     def _get_feature_name(self, feature, *, lang: str) -> str | None:
         localized_names = feature.properties.extra.get('name_international')
@@ -193,6 +195,17 @@ class PlacesService:
                 return localized_name
 
         return feature.properties.name
+
+    def _get_feature_address(self, feature) -> str:
+        for value in (
+            feature.properties.formatted,
+            feature.properties.address_line2,
+            feature.properties.address_line3,
+        ):
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        return ''
 
     def _score_feature(self, feature, *, distance_meters: float) -> float:
         category_score = max(
