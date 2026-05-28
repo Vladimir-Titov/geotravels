@@ -1,9 +1,9 @@
-def get_suggest_place_prompt(lang: str, names: list[dict[str, str]]) -> str:
+def get_suggest_place_prompt(lang: str, names: list[dict[str, str]], city: dict) -> str:
     prompts = {
         'ru': f"""
 Ты — опытный экскурсовод и travel-эксперт.
 
-Вот список популярных мест в городе. Каждый элемент — это объект, где ключ это название места, а значение это адрес из GeoApify:
+Вот список популярных мест в городе: {city['name']} страны с country code: {city['country_code']}. Каждый элемент — это объект, где ключ это название места, а значение это адрес из GeoApify:
 {names}
 
 Твоя задача:
@@ -48,7 +48,7 @@ list[dict[str, str]]
         'en': f"""
 You are an experienced tour guide and travel expert.
 
-Here is a list of popular places in the city. Each item is an object where the key is the place name and the value is the GeoApify address:
+Here is a list of popular places in the city: {city['name']} in the country with country code: {city['country_code']}. Each item is an object where the key is the place name and the value is the GeoApify address:
 {names}
 
 Your task:

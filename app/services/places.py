@@ -86,7 +86,7 @@ class PlacesService:
         names = self._extract_place_names(response, lat=lat, lng=lng, lang=normalized_lang)
         completions_request = DeepSeekCompletionRequest(
             model='deepseek-v4-flash',
-            prompt=get_suggest_place_prompt(lang=normalized_lang, names=names),
+            prompt=get_suggest_place_prompt(lang=normalized_lang, names=names, city=city),
         )
         completions = await self.deepseek_client.completions(completions_request)
         resp = completions.choices[0].text
