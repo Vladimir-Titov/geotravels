@@ -148,3 +148,9 @@ class ClientGeoCityResponse(CityResponse):
 class ClientGeoCitiesListResponse(BaseModel):
     items: list[ClientGeoCityResponse]
     pagination: PaginationResponse
+
+
+class ClientGeoPlaceSuggestionResponse(BaseModel):
+    place: str
+    desc: str
+    address: str

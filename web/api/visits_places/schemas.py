@@ -49,12 +49,27 @@ class VisitsPlacesListRequest(BaseListRequest):
 class CreateVisitPlaceRequest(BaseModel):
     visit_id: UUID
     title: str = Field(min_length=1, max_length=255)
+    address: str | None = None
+    description: str | None = None
+
+
+class CreateVisitPlaceBulkItemRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    address: str | None = None
+    description: str | None = None
+
+
+class CreateVisitPlacesBulkRequest(BaseModel):
+    visit_id: UUID
+    places: list[CreateVisitPlaceBulkItemRequest] = Field(min_length=1)
 
 
 class UpdateVisitPlaceRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     title: str | None = Field(default=None, min_length=1, max_length=255)
+    address: str | None = None
+    description: str | None = None
     is_visited: bool | None = None
 
 
@@ -64,6 +79,8 @@ class VisitPlaceResponse(BaseModel):
     id: UUID
     visit_id: UUID
     title: str
+    address: str | None = None
+    description: str | None = None
     user_id: UUID
     is_visited: bool
     created: datetime

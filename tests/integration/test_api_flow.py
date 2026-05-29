@@ -643,12 +643,19 @@ def test_visits_places_crud_and_duplicate_validation(client, settings) -> None:
     created = client.post(
         '/api/v1/visits/places',
         headers=owner_headers,
-        json={'visit_id': visit['id'], 'title': '  Trevi Fountain  '},
+        json={
+            'visit_id': visit['id'],
+            'title': '  Trevi Fountain  ',
+            'address': 'Piazza di Trevi',
+            'description': 'A landmark fountain.',
+        },
     )
     assert created.status_code == 201
     created_payload = created.json()
     place_id = created_payload['id']
     assert created_payload['title'] == 'Trevi Fountain'
+    assert created_payload['address'] == 'Piazza di Trevi'
+    assert created_payload['description'] == 'A landmark fountain.'
     assert created_payload['is_visited'] is False
 
     duplicate = client.post(
@@ -668,12 +675,44 @@ def test_visits_places_crud_and_duplicate_validation(client, settings) -> None:
     updated = client.patch(
         f'/api/v1/visits/places/{place_id}',
         headers=owner_headers,
-        json={'title': 'Trevi Fountain at Night', 'is_visited': True},
+        json={
+            'title': 'Trevi Fountain at Night',
+            'address': 'Trevi',
+            'description': 'Best after sunset.',
+            'is_visited': True,
+        },
     )
     assert updated.status_code == 200
     updated_payload = updated.json()
     assert updated_payload['title'] == 'Trevi Fountain at Night'
+    assert updated_payload['address'] == 'Trevi'
+    assert updated_payload['description'] == 'Best after sunset.'
     assert updated_payload['is_visited'] is True
+
+    bulk = client.post(
+        '/api/v1/visits/places/bulk',
+        headers=owner_headers,
+        json={
+            'visit_id': visit['id'],
+            'places': [
+                {
+                    'title': 'Colosseum',
+                    'address': 'Piazza del Colosseo',
+                    'description': 'Ancient amphitheatre.',
+                },
+                {
+                    'title': 'Pantheon',
+                    'address': 'Piazza della Rotonda',
+                    'description': 'Historic Roman temple.',
+                },
+            ],
+        },
+    )
+    assert bulk.status_code == 201
+    bulk_payload = bulk.json()
+    assert [place['title'] for place in bulk_payload] == ['Colosseum', 'Pantheon']
+    assert bulk_payload[0]['address'] == 'Piazza del Colosseo'
+    assert bulk_payload[0]['description'] == 'Ancient amphitheatre.'
 
     empty_patch = client.patch(
         f'/api/v1/visits/places/{place_id}',
@@ -689,7 +728,7 @@ def test_visits_places_crud_and_duplicate_validation(client, settings) -> None:
 
     after_delete = client.get('/api/v1/visits/places?limit=10&offset=0', headers=owner_headers)
     assert after_delete.status_code == 200
-    assert after_delete.json()['pagination']['total'] == 0
+    assert after_delete.json()['pagination']['total'] == 2
 
 
 def test_visits_places_files_crud_and_constraints(client, settings) -> None:
@@ -1109,7 +1148,7 @@ def test_client_geo_city_places_passes_lang_to_places_service(client, settings, 
     async def _mock_suggest_places(self, *, city_id, lang='en'):  # noqa: ARG001
         assert city_id == UUID('8168e736-cc26-56f4-a573-1a6e7e5e0ea7')
         assert lang == 'ru'
-        return ['Колизей']
+        return [{'place': 'Колизей', 'desc': 'Древний амфитеатр.', 'address': 'Piazza del Colosseo'}]
 
     monkeypatch.setattr(PlacesService, 'suggest_places', _mock_suggest_places)
     tokens = _get_tokens(client, 'client-geo-place-labels@example.com', settings.otp.otp_mock_code)
@@ -1121,7 +1160,7 @@ def test_client_geo_city_places_passes_lang_to_places_service(client, settings, 
     )
 
     assert response.status_code == 200
-    assert response.json() == ['Колизей']
+    assert response.json() == [{'place': 'Колизей', 'desc': 'Древний амфитеатр.', 'address': 'Piazza del Colosseo'}]
 
 
 def test_client_geo_cities_searches_localized_labels_and_keeps_canonical_name(

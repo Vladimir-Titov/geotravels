@@ -196,6 +196,8 @@ class VisitPlaceResponse(BaseModel):
     id: UUID
     visit_id: UUID
     title: str
+    address: str | None = None
+    description: str | None = None
     user_id: UUID
     is_visited: bool
     created: datetime

@@ -13,6 +13,7 @@ from web.api.client_geo.schemas import (
     ClientGeoCountriesListResponse,
     ClientGeoCountryResponse,
     ClientGeoPlacesSuggestRequest,
+    ClientGeoPlaceSuggestionResponse,
     PaginationResponse,
 )
 from web.utils import from_query
@@ -73,8 +74,9 @@ async def suggest_client_city_places(
     places_service: PlacesService,
     current_user: CurrentUser,  # noqa: ARG001
     filters: ClientGeoPlacesSuggestRequest,
-) -> list[dict[str, str]]:
-    return await places_service.suggest_places(city_id=city_id, lang=filters.lang)
+) -> list[ClientGeoPlaceSuggestionResponse]:
+    places = await places_service.suggest_places(city_id=city_id, lang=filters.lang)
+    return [ClientGeoPlaceSuggestionResponse(**place) for place in places]
 
 
 client_geo_router = Router(

@@ -7,6 +7,7 @@ from app.services.exceptions import ServiceError
 from app.services.visits_places import VisitsPlacesService
 from web.api.visits_places.schemas import (
     CreateVisitPlaceRequest,
+    CreateVisitPlacesBulkRequest,
     PaginationResponse,
     UpdateVisitPlaceRequest,
     VisitPlaceResponse,
@@ -26,8 +27,24 @@ async def create_visit_place(
         user_id=current_user.id,
         visit_id=data.visit_id,
         title=data.title,
+        address=data.address,
+        description=data.description,
     )
     return VisitPlaceResponse(**place)
+
+
+@post('/bulk', tags=['visits-places'], security=[{'user_auth': []}])
+async def create_visit_places_bulk(
+    data: CreateVisitPlacesBulkRequest,
+    visits_places_service: VisitsPlacesService,
+    current_user: CurrentUser,
+) -> list[VisitPlaceResponse]:
+    places = await visits_places_service.create_places_bulk(
+        user_id=current_user.id,
+        visit_id=data.visit_id,
+        places=[place.model_dump() for place in data.places],
+    )
+    return [VisitPlaceResponse(**place) for place in places]
 
 
 @get(
@@ -97,6 +114,7 @@ visits_places_router = Router(
     path='/api/v1/visits/places',
     route_handlers=[
         create_visit_place,
+        create_visit_places_bulk,
         list_visit_places,
         get_visit_place_by_id,
         update_visit_place_by_id,

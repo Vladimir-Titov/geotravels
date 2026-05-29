@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID, uuid7
 
@@ -13,6 +14,8 @@ class VisitsPlacesRepository(BaseEntityDBRepository):
         visit_id: UUID,
         user_id: UUID,
         title: str,
+        address: str | None = None,
+        description: str | None = None,
         is_visited: bool = False,
     ) -> dict[str, Any]:
         return await super().create(
@@ -20,8 +23,13 @@ class VisitsPlacesRepository(BaseEntityDBRepository):
             visit_id=visit_id,
             user_id=user_id,
             title=title,
+            address=address,
+            description=description,
             is_visited=is_visited,
         )
+
+    async def create_many_for_visit(self, payload: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        return await self.create_many([{**item, 'id': uuid7()} for item in payload])
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(row.get('id'), str):
