@@ -19,11 +19,10 @@ class GeoApifyClient:
     async def search_places(self, request: GeoApifyPlaceRequest | dict[str, Any]) -> GeoApifyPlaceResponse:
         try:
             payload = await self._request_places(self.session, params=self._build_params(request))
+            return GeoApifyPlaceResponse.from_dict(payload)
         except Exception as exc:  # noqa: BLE001
             logger.warning('Geoapify places request failed: %s', exc)
             return GeoApifyPlaceResponse(features=())
-
-        return GeoApifyPlaceResponse.from_dict(payload)
 
     async def _request_places(self, session: ClientSession, *, params: dict[str, Any]) -> dict[str, Any]:
         url = urljoin(self.base_url, '/v2/places')

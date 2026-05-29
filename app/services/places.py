@@ -1,5 +1,4 @@
 from math import asin, cos, radians, sin, sqrt
-from pprint import pprint
 from uuid import UUID
 
 import ujson
@@ -89,8 +88,14 @@ class PlacesService:
             prompt=get_suggest_place_prompt(lang=normalized_lang, names=names, city=city),
         )
         completions = await self.deepseek_client.completions(completions_request)
+        if not completions.choices:
+            raise ServiceError('DeepSeek returned no completion choices')
+
         resp = completions.choices[0].text
-        return ujson.loads(resp)
+        try:
+            return ujson.loads(resp)
+        except ValueError as exc:
+            raise ServiceError('DeepSeek returned malformed JSON') from exc
 
     def _normalize_lang(self, value: str | None) -> str:
         if not isinstance(value, str):
@@ -123,7 +128,7 @@ class PlacesService:
             east = float(bbox['east'])
             south = float(bbox['south'])
             west = float(bbox['west'])
-        except KeyError, TypeError, ValueError:
+        except (KeyError, TypeError, ValueError):
             return None
 
         return max(
@@ -179,7 +184,6 @@ class PlacesService:
                 scored_by_name[normalized_key] = (*sortable, normalized_name, self._get_feature_address(feature))
 
         scored_places = sorted(scored_by_name.values(), reverse=True)
-        pprint(scored_places)
         return [{name: address} for *_score_parts, name, address in scored_places[:DEFAULT_POPULAR_PLACES_LIMIT]]
 
     def _get_feature_name(self, feature, *, lang: str) -> str | None:

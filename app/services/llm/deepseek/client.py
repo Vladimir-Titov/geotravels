@@ -39,7 +39,7 @@ class DeepSeekClient:
             json=json,
             timeout=self.settings.timeout_seconds,
         ) as response:
-            payload: Any = await response.json(content_type=None)
             response.raise_for_status()
+            payload: Any = await response.json(content_type=None)
 
         return payload if isinstance(payload, dict) else {}
