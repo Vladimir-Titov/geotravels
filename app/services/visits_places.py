@@ -25,6 +25,13 @@ class VisitsPlacesService:
             raise ServiceError('title is too long, max length is 255')
         return normalized
 
+    @staticmethod
+    def _normalize_optional_text(value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
     async def _ensure_visit_owned(self, visit_id: UUID, user_id: UUID) -> None:
         visit = await self.visits_repository.search_first_row(id=visit_id, user_id=user_id)
         if not visit:
@@ -36,7 +43,14 @@ class VisitsPlacesService:
             raise NotFoundError('Visit place not found')
         return place
 
-    async def create_place(self, user_id: UUID, visit_id: UUID, title: str) -> dict[str, Any]:
+    async def create_place(
+        self,
+        user_id: UUID,
+        visit_id: UUID,
+        title: str,
+        address: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
         await self._ensure_visit_owned(visit_id=visit_id, user_id=user_id)
         normalized_title = self._normalize_title(title)
 
@@ -45,6 +59,8 @@ class VisitsPlacesService:
                 visit_id=visit_id,
                 user_id=user_id,
                 title=normalized_title,
+                address=self._normalize_optional_text(address),
+                description=self._normalize_optional_text(description),
                 is_visited=False,
             )
         except Exception as exc:  # noqa: BLE001
@@ -56,6 +72,40 @@ class VisitsPlacesService:
             if existing:
                 raise ConflictError('Visit place with this title already exists') from exc
             raise
+
+    async def create_places_bulk(
+        self,
+        user_id: UUID,
+        visit_id: UUID,
+        places: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        await self._ensure_visit_owned(visit_id=visit_id, user_id=user_id)
+
+        normalized_places = [
+            {
+                'visit_id': visit_id,
+                'user_id': user_id,
+                'title': self._normalize_title(place['title']),
+                'address': self._normalize_optional_text(place.get('address')),
+                'description': self._normalize_optional_text(place.get('description')),
+                'is_visited': False,
+            }
+            for place in places
+        ]
+        titles = [place['title'] for place in normalized_places]
+        if len(titles) != len(set(titles)):
+            raise ConflictError('Visit places contain duplicate titles')
+
+        existing = await self.visits_places_repository.search(
+            visit_id=visit_id,
+            user_id=user_id,
+            title_in=titles,
+        )
+        if existing:
+            raise ConflictError('Visit place with this title already exists')
+
+        async with self.visits_places_repository.transaction():
+            return await self.visits_places_repository.create_many_for_visit(normalized_places)
 
     async def list_places(self, user_id: UUID, limit: int, offset: int, **filters: Any) -> PaginatedResponse:
         return await self.visits_places_repository.paginated_search(
@@ -77,6 +127,10 @@ class VisitsPlacesService:
         if 'title' in update_payload:
             normalized_title = self._normalize_title(update_payload['title'])
             update_payload['title'] = normalized_title
+        if 'address' in update_payload:
+            update_payload['address'] = self._normalize_optional_text(update_payload['address'])
+        if 'description' in update_payload:
+            update_payload['description'] = self._normalize_optional_text(update_payload['description'])
 
         try:
             return await self.visits_places_repository.update_by_id(entity_id=place_id, **update_payload)

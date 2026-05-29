@@ -39,6 +39,7 @@ from app.services import (
     FilesService,
     FollowersService,
     ImageVariantService,
+    PlacesService,
     UsersService,
     VisitsChecklistService,
     VisitsPlacesFilesService,
@@ -49,7 +50,9 @@ from app.services import (
 from app.services.current_user import CurrentUser
 from app.services.exceptions import AppError, ServiceError
 from app.services.file_storage import FileStorage, S3FileStorage
+from app.services.geoapify.client import GeoApifyClient
 from app.services.geonames import GeoNamesClient
+from app.services.llm.deepseek import DeepSeekClient
 from app.services.otp_sender import ResendOTPSender
 from app.services.supports_service import SupportsService
 from helpers import DBPool, create_db_pool_from_settings
@@ -158,6 +161,14 @@ def create_app(
             timeout_seconds=app_settings.client_geo.geonames_timeout_seconds,
             session=app.state.http_client_session,
         )
+        app.state.geoapify_client = GeoApifyClient(
+            settings=app_settings.geoapify,
+            session=app.state.http_client_session,
+        )
+        app.state.deepseek_client = DeepSeekClient(
+            settings=app_settings.deepseek,
+            session=app.state.http_client_session,
+        )
 
     async def shutdown(app: Litestar) -> None:
         if http_session is None and hasattr(app.state, 'http_client_session'):
@@ -197,6 +208,14 @@ def create_app(
             countries_repository=CountriesRepository(db_pool),
             cities_repository=CitiesRepository(db_pool),
             geonames_client=request.app.state.geonames_client,
+        )
+
+    def provide_places_service(request: Request) -> PlacesService:
+        db_pool = request.app.state.db_pool
+        return PlacesService(
+            geoapify_client=request.app.state.geoapify_client,
+            cities_repository=CitiesRepository(db_pool),
+            deepseek_client=app.state.deepseek_client,
         )
 
     def provide_achievements_service(request: Request) -> AchievementsService:
@@ -321,6 +340,7 @@ def create_app(
             'client_geo_search_service': Provide(provide_client_geo_search_service, sync_to_thread=False),
             'users_service': Provide(provide_users_service, sync_to_thread=False),
             'followers_service': Provide(provide_followers_service, sync_to_thread=False),
+            'places_service': Provide(provide_places_service, sync_to_thread=False),
             'files_service': Provide(provide_files_service, sync_to_thread=False),
             'visits_service': Provide(provide_visits_service, sync_to_thread=False),
             'visits_checklist_service': Provide(provide_visits_checklist_service, sync_to_thread=False),

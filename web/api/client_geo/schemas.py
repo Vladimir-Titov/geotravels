@@ -112,6 +112,11 @@ class ClientGeoCitiesListRequest(CitiesListRequest):
         return _normalize_client_geo_lang(self.lang)
 
 
+@dataclass(frozen=True)
+class ClientGeoPlacesSuggestRequest:
+    lang: str = field(default='en')
+
+
 class ClientGeoCountryResponse(CountryResponse):
     display_name: str
 
@@ -143,3 +148,9 @@ class ClientGeoCityResponse(CityResponse):
 class ClientGeoCitiesListResponse(BaseModel):
     items: list[ClientGeoCityResponse]
     pagination: PaginationResponse
+
+
+class ClientGeoPlaceSuggestionResponse(BaseModel):
+    place: str
+    desc: str
+    address: str
